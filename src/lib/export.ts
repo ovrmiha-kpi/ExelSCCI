@@ -27,16 +27,16 @@ export async function exportRatingXLSX(
   const XLSX = await import('xlsx')
   const header = [
     '№',
-    'ФИО',
-    'Группа',
+    'ПІБ',
+    'Група',
     'Статус',
-    ...dutyTypes.map((d) => `${d.name} (${mode === 'count' ? 'раз' : 'баллы'})`),
-    'Всего нарядов',
-    'Начальные баллы',
-    'Баллы за наряды',
-    'Итого баллов',
-    'Последний наряд',
-    'Дней отдыха',
+    ...dutyTypes.map((d) => `${d.name} (${mode === 'count' ? 'разів' : 'бали'})`),
+    'Всього нарядів',
+    'Початкові бали',
+    'Бали за наряди',
+    'Разом балів',
+    'Останній наряд',
+    'Днів відпочинку',
   ]
   const body = rows.map((s, i) => [
     i + 1,
@@ -68,7 +68,7 @@ export async function exportJournalXLSX(
   const XLSX = await import('xlsx')
   const pById = new Map(people.map((p) => [p.id, p]))
   const dById = new Map(dutyTypes.map((d) => [d.id, d]))
-  const header = ['Дата', 'Наряд', 'ФИО', 'Группа', 'Баллы', 'Источник', 'Заметка']
+  const header = ['Дата', 'Наряд', 'ПІБ', 'Група', 'Бали', 'Джерело', 'Примітка']
   const body = [...assignments]
     .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
     .map((a) => {
@@ -80,7 +80,7 @@ export async function exportJournalXLSX(
         p?.name ?? '—',
         p?.group ?? '',
         a.points,
-        a.source === 'auto' ? 'авто' : 'вручную',
+        a.source === 'auto' ? 'авто' : 'вручну',
         a.note,
       ]
     })
@@ -101,8 +101,8 @@ export function readFileAsText(file: File): Promise<string> {
 }
 
 /**
- * Разбор вставленного списка людей. Каждая строка: `ФИО`, `ФИО;Группа`, `ФИО;Группа;Баллы`.
- * Разделители: `;`, `\t`, `,`.
+ * Розбір вставленого списку людей. Кожен рядок: `ПІБ`, `ПІБ;Група`, `ПІБ;Група;Бали`.
+ * Роздільники: `;`, `\t`, `,`.
  */
 export function parsePeopleList(text: string): Array<{ name: string; group: string; basePoints: number }> {
   return text

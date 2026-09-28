@@ -48,10 +48,10 @@ export function DutyTypesPage() {
     <div className="flex flex-col gap-3">
       <div className="card flex items-center gap-3 p-3">
         <p className="text-sm text-slate-600">
-          Каждый вид наряда даёт баллы. Изменение стоимости действует на новые записи — старые сохраняют свои баллы.
+          Кожен вид наряду дає бали. Зміна вартості діє на нові записи — старі зберігають свої бали.
         </p>
         <button className="btn-primary ml-auto" onClick={() => setAddOpen(true)}>
-          <Plus size={14} /> Добавить вид
+          <Plus size={14} /> Додати вид
         </button>
       </div>
 
@@ -60,12 +60,12 @@ export function DutyTypesPage() {
           <thead>
             <tr>
               <th className="th w-16" />
-              <th className="th">Название</th>
-              <th className="th">Кратко</th>
-              <th className="th text-center">Баллы</th>
-              <th className="th text-center">Чел. по умолч.</th>
-              <th className="th">Цвет</th>
-              <th className="th text-center">Записей</th>
+              <th className="th">Назва</th>
+              <th className="th">Коротко</th>
+              <th className="th text-center">Бали</th>
+              <th className="th text-center">Осіб за замовч.</th>
+              <th className="th">Колір</th>
+              <th className="th text-center">Записів</th>
               <th className="th" />
             </tr>
           </thead>
@@ -132,19 +132,19 @@ export function DutyTypesPage() {
                 <td className="td text-right whitespace-nowrap">
                   <button
                     className="btn-ghost btn-sm"
-                    title={d.archived ? 'Вернуть из архива' : 'В архив (не предлагать при назначении)'}
+                    title={d.archived ? 'Повернути з архіву' : 'В архів (не пропонувати при призначенні)'}
                     onClick={() => updateDutyType(d.id, { archived: !d.archived })}
                   >
                     {d.archived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
                   </button>
                   <button
                     className="btn-ghost btn-sm text-red-600"
-                    title="Удалить"
+                    title="Видалити"
                     onClick={() => {
                       const n = usage.get(d.id) ?? 0
                       if (
                         confirm(
-                          `Удалить «${d.name}»?${n ? ` Удалятся и ${n} записей о таких нарядах. Лучше отправить в архив.` : ''}`,
+                          `Видалити «${d.name}»?${n ? ` Видаляться і ${n} записів про такі наряди. Краще відправити в архів.` : ''}`,
                         )
                       )
                         removeDutyType(d.id)
@@ -162,23 +162,23 @@ export function DutyTypesPage() {
       <Modal
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        title="Новый вид наряда"
+        title="Новий вид наряду"
         footer={
           <>
             <button className="btn-secondary" onClick={() => setAddOpen(false)}>
-              Отмена
+              Скасувати
             </button>
             <button className="btn-primary" disabled={!name.trim()} onClick={submit}>
-              Добавить
+              Додати
             </button>
           </>
         }
       >
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Название" className="col-span-2">
+          <Field label="Назва" className="col-span-2">
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </Field>
-          <Field label="Кратко (для колонок)">
+          <Field label="Коротко (для колонок)">
             <input
               className="input uppercase"
               maxLength={5}
@@ -187,13 +187,13 @@ export function DutyTypesPage() {
               placeholder={name.slice(0, 3).toUpperCase()}
             />
           </Field>
-          <Field label="Баллы за раз">
+          <Field label="Балів за раз">
             <input type="number" step="0.5" className="input" value={points} onChange={(e) => setPoints(e.target.value)} />
           </Field>
-          <Field label="Человек по умолчанию">
+          <Field label="Осіб за замовчуванням">
             <input type="number" min={1} className="input" value={slots} onChange={(e) => setSlots(e.target.value)} />
           </Field>
-          <Field label="Цвет">
+          <Field label="Колір">
             <div className="flex flex-wrap gap-1.5 pt-1">
               {DUTY_COLORS.map((c) => (
                 <button

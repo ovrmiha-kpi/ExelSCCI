@@ -170,18 +170,18 @@ export const useStore = create<Store>()(
       loadDemo: () => {
         const data = initialData()
         const names = [
-          'Иванов И.И.',
-          'Петров П.П.',
-          'Сидоров С.С.',
-          'Кузнецов К.К.',
-          'Смирнов А.А.',
-          'Попов Д.Д.',
-          'Васильев В.В.',
-          'Новиков Н.Н.',
-          'Морозов М.М.',
-          'Волков О.О.',
-          'Лебедев Л.Л.',
-          'Козлов Е.Е.',
+          'Шевченко Т.Г.',
+          'Коваленко О.В.',
+          'Бондаренко І.М.',
+          'Ткаченко А.С.',
+          'Кравченко Д.П.',
+          'Мельник В.О.',
+          'Поліщук Р.І.',
+          'Лисенко М.А.',
+          'Романенко Ю.В.',
+          'Савченко Б.О.',
+          'Марченко Н.Д.',
+          'Козак Є.Є.',
         ]
         const now = Date.now()
         data.people = names.map((name, i) => ({
@@ -193,7 +193,7 @@ export const useStore = create<Store>()(
           note: '',
           createdAt: now,
         }))
-        // немного истории за последние 2 недели
+        // трохи історії за останні 2 тижні
         const duties = data.dutyTypes
         const today = new Date()
         for (let back = 14; back >= 1; back--) {
@@ -262,12 +262,12 @@ export function exportData(): AppData {
   }
 }
 
-/** Проверка и нормализация импортируемого JSON. Бросает ошибку с понятным текстом. */
+/** Перевірка та нормалізація імпортованого JSON. Кидає помилку зі зрозумілим текстом. */
 export function parseImportedData(raw: unknown): AppData {
-  if (!raw || typeof raw !== 'object') throw new Error('Файл не похож на резервную копию DutyRank.')
+  if (!raw || typeof raw !== 'object') throw new Error('Файл не схожий на резервну копію DutyRank.')
   const o = raw as Partial<AppData>
   if (!Array.isArray(o.people) || !Array.isArray(o.dutyTypes) || !Array.isArray(o.assignments)) {
-    throw new Error('В файле нет обязательных разделов (people, dutyTypes, assignments).')
+    throw new Error('У файлі немає обов’язкових розділів (people, dutyTypes, assignments).')
   }
   return {
     people: o.people,

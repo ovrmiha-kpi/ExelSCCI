@@ -16,12 +16,12 @@ export const DUTY_COLORS = [
 
 export function defaultDutyTypes(): DutyType[] {
   const base: Array<Omit<DutyType, 'id' | 'archived' | 'order' | 'color'>> = [
-    { name: 'Дневальный', short: 'ДН', points: 2, defaultSlots: 2 },
-    { name: 'Дежурный по роте', short: 'ДЖ', points: 3, defaultSlots: 1 },
+    { name: 'Днювальний', short: 'ДН', points: 2, defaultSlots: 2 },
+    { name: 'Черговий роти', short: 'ЧР', points: 3, defaultSlots: 1 },
     { name: 'ПГД', short: 'ПГД', points: 1, defaultSlots: 1 },
-    { name: 'Наряд по столовой', short: 'СТ', points: 2, defaultSlots: 2 },
-    { name: 'Уборка территории', short: 'УТ', points: 1, defaultSlots: 2 },
-    { name: 'Хозработы', short: 'ХР', points: 1, defaultSlots: 1 },
+    { name: 'Наряд по їдальні', short: 'ЇД', points: 2, defaultSlots: 2 },
+    { name: 'Прибирання території', short: 'ПТ', points: 1, defaultSlots: 2 },
+    { name: 'Госпроботи', short: 'ГР', points: 1, defaultSlots: 1 },
   ]
   return base.map((d, i) => ({
     ...d,

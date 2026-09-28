@@ -24,25 +24,25 @@ export function SettingsPage() {
       const data = parseImportedData(JSON.parse(text))
       if (
         !confirm(
-          `Заменить текущие данные? В файле: ${data.people.length} чел., ${data.dutyTypes.length} видов нарядов, ${data.assignments.length} записей.`,
+          `Замінити поточні дані? У файлі: ${data.people.length} осіб, ${data.dutyTypes.length} видів нарядів, ${data.assignments.length} записів.`,
         )
       )
         return
       replaceAll(data)
-      setMsg('Данные восстановлены из файла.')
+      setMsg('Дані відновлено з файлу.')
     } catch (e) {
-      setMsg(`Ошибка импорта: ${(e as Error).message}`)
+      setMsg(`Помилка імпорту: ${(e as Error).message}`)
     }
   }
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <section className="card flex flex-col gap-4 p-4">
-        <h2 className="text-sm font-semibold text-slate-800">Правила автоназначения</h2>
+        <h2 className="text-sm font-semibold text-slate-800">Правила автопризначення</h2>
 
         <Field
-          label="Минимальный перерыв между нарядами, дней"
-          hint="0 — можно каждый день; 1 — не два дня подряд; 2 — минимум один свободный день между нарядами. Если людей не хватает, правило нарушается с предупреждением."
+          label="Мінімальна перерва між нарядами, днів"
+          hint="0 — можна щодня; 1 — не два дні поспіль; 2 — мінімум один вільний день між нарядами. Якщо людей не вистачає, правило порушується з попередженням."
         >
           <input
             type="number"
@@ -57,43 +57,43 @@ export function SettingsPage() {
         <Toggle
           checked={settings.avoidRepeatDuty}
           onChange={(v) => updateSettings({ avoidRepeatDuty: v })}
-          label="При равном рейтинге не ставить в тот же наряд, что и в прошлый раз"
+          label="За рівного рейтингу не ставити в той самий наряд, що й минулого разу"
         />
         <Toggle
           checked={settings.randomTies}
           onChange={(v) => updateSettings({ randomTies: v })}
-          label="Полные ничьи разбивать случайно (иначе — по алфавиту)"
+          label="Повні нічиї розбивати випадково (інакше — за алфавітом)"
         />
 
         <div className="rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-          <p className="mb-1 font-medium text-slate-700">Как выбирается человек</p>
+          <p className="mb-1 font-medium text-slate-700">Як обирається людина</p>
           <ol className="list-decimal space-y-0.5 pl-4">
-            <li>Только «В строю», не занятые в этот день, с соблюдением перерыва.</li>
-            <li>Меньше всего баллов (начальные + за все наряды).</li>
-            <li>Не ходил в этот же наряд в прошлый раз (если включено).</li>
-            <li>Дольше всех отдыхал.</li>
-            <li>Реже ходил именно в этот вид наряда.</li>
-            <li>Случайно / по алфавиту.</li>
+            <li>Тільки «У строю», не зайняті цього дня, з дотриманням перерви.</li>
+            <li>Найменше балів (початкові + за всі наряди).</li>
+            <li>Не ходив у цей самий наряд минулого разу (якщо увімкнено).</li>
+            <li>Найдовше відпочивав.</li>
+            <li>Рідше ходив саме в цей вид наряду.</li>
+            <li>Випадково / за алфавітом.</li>
           </ol>
           <p className="mt-2">
-            Наряды с большей стоимостью раздаются первыми, поэтому самые «отдохнувшие» получают самые тяжёлые.
+            Наряди з більшою вартістю роздаються першими, тому найбільш «відпочилі» отримують найважчі.
           </p>
         </div>
       </section>
 
       <section className="card flex flex-col gap-4 p-4">
-        <h2 className="text-sm font-semibold text-slate-800">Данные</h2>
+        <h2 className="text-sm font-semibold text-slate-800">Дані</h2>
         <p className="text-sm text-slate-600">
-          Всё хранится в этом браузере (localStorage): {counts.p} чел., {counts.d} видов нарядов, {counts.a} записей.
-          Регулярно делайте резервную копию — файл можно открыть на другом компьютере.
+          Усе зберігається в цьому браузері (localStorage): {counts.p} осіб, {counts.d} видів нарядів, {counts.a}{' '}
+          записів. Регулярно робіть резервну копію — файл можна відкрити на іншому комп’ютері.
         </p>
 
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary" onClick={() => exportJSON(exportData())}>
-            <Download size={14} /> Скачать резервную копию
+            <Download size={14} /> Завантажити резервну копію
           </button>
           <button className="btn-secondary" onClick={() => fileRef.current?.click()}>
-            <Upload size={14} /> Восстановить из файла
+            <Upload size={14} /> Відновити з файлу
           </button>
           <input
             ref={fileRef}
@@ -116,24 +116,24 @@ export function SettingsPage() {
           <button
             className="btn-secondary"
             onClick={() => {
-              if (counts.p === 0 || confirm('Загрузить демо-данные? Текущие данные будут заменены.')) {
+              if (counts.p === 0 || confirm('Завантажити демо-дані? Поточні дані буде замінено.')) {
                 loadDemo()
-                setMsg('Загружены демо-данные.')
+                setMsg('Завантажено демо-дані.')
               }
             }}
           >
-            <FlaskConical size={14} /> Демо-данные
+            <FlaskConical size={14} /> Демо-дані
           </button>
           <button
             className="btn-danger"
             onClick={() => {
-              if (confirm('Удалить ВСЕ данные? Это действие нельзя отменить.')) {
+              if (confirm('Видалити ВСІ дані? Цю дію не можна скасувати.')) {
                 resetAll()
-                setMsg('Данные очищены.')
+                setMsg('Дані очищено.')
               }
             }}
           >
-            <Trash2 size={14} /> Очистить всё
+            <Trash2 size={14} /> Очистити все
           </button>
         </div>
       </section>

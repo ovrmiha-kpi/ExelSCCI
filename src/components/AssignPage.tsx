@@ -23,7 +23,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
   const duties = useMemo(() => activeDutyTypes(dutyTypes), [dutyTypes])
   const dutyById = useMemo(() => new Map(dutyTypes.map((d) => [d.id, d])), [dutyTypes])
   const groups = useMemo(
-    () => [...new Set(people.map((p) => p.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru')),
+    () => [...new Set(people.map((p) => p.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'uk')),
     [people],
   )
 
@@ -79,7 +79,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
   }, [proposals])
 
   const candidatesFor = (date: string, currentPersonId: string | null) => {
-    // текущего человека не считаем занятым этим же местом, чтобы он оставался выбранным
+    // поточну людину не вважаємо зайнятою цим же місцем, щоб вона залишалася обраною
     const m = new Map(plannedByPerson)
     if (currentPersonId) {
       const rest = (m.get(currentPersonId) ?? []).slice()
@@ -94,7 +94,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
     setProposals((prev) =>
       prev
         ? prev.map((p) =>
-            p.key === key ? { ...p, personId, note: personId ? 'выбран вручную' : 'не назначен' } : p,
+            p.key === key ? { ...p, personId, note: personId ? 'обрано вручну' : 'не призначено' } : p,
           )
         : prev,
     )
@@ -118,8 +118,8 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
 
   if (people.length === 0) {
     return (
-      <EmptyState title="Сначала добавьте людей">
-        Автоназначение выбирает из личного состава на вкладке «Люди».
+      <EmptyState title="Спочатку додайте людей">
+        Автопризначення обирає з особового складу на вкладці «Люди».
       </EmptyState>
     )
   }
@@ -129,11 +129,11 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[22rem_1fr]">
-      {/* Параметры */}
+      {/* Параметри */}
       <div className="card flex flex-col gap-4 p-4 lg:sticky lg:top-16 lg:self-start">
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-800">Когда</h2>
-          <Toggle checked={multiDay} onChange={setMultiDay} label="Спланировать несколько дней" />
+          <h2 className="mb-2 text-sm font-semibold text-slate-800">Коли</h2>
+          <Toggle checked={multiDay} onChange={setMultiDay} label="Спланувати кілька днів" />
           <div className="mt-2 flex items-center gap-2">
             <input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} />
             {multiDay && (
@@ -145,13 +145,13 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
           </div>
           {multiDay && (
             <p className="mt-1 text-xs text-slate-500">
-              {dates.length} дн. — рейтинг пересчитывается после каждого дня, чтобы нагрузка распределялась ровно.
+              {dates.length} дн. — рейтинг перераховується після кожного дня, щоб навантаження розподілялося рівно.
             </p>
           )}
         </div>
 
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-800">Какие наряды и сколько человек</h2>
+          <h2 className="mb-2 text-sm font-semibold text-slate-800">Які наряди і скільки людей</h2>
           <div className="flex flex-col gap-1.5">
             {duties.map((d) => (
               <div key={d.id} className="flex items-center gap-2">
@@ -175,13 +175,13 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
             ))}
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Всего мест в день: <b>{totalSlots}</b>, доступно людей: <b>{activeCount}</b>
+            Усього місць на день: <b>{totalSlots}</b>, доступно людей: <b>{activeCount}</b>
           </p>
         </div>
 
         {groups.length > 1 && (
           <div>
-            <h2 className="mb-2 text-sm font-semibold text-slate-800">Из каких групп</h2>
+            <h2 className="mb-2 text-sm font-semibold text-slate-800">З яких груп</h2>
             <div className="flex flex-wrap gap-1.5">
               {groups.map((g) => {
                 const on = selGroups.has(g)
@@ -206,15 +206,15 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                 )
               })}
             </div>
-            <p className="mt-1 text-xs text-slate-500">Ничего не выбрано — берём всех.</p>
+            <p className="mt-1 text-xs text-slate-500">Нічого не обрано — беремо всіх.</p>
           </div>
         )}
 
         <div>
-          <h2 className="mb-2 text-sm font-semibold text-slate-800">Исключить на этот раз</h2>
+          <h2 className="mb-2 text-sm font-semibold text-slate-800">Виключити цього разу</h2>
           <input
             className="input mb-1.5"
-            placeholder="найти человека…"
+            placeholder="знайти людину…"
             value={excludeSearch}
             onChange={(e) => setExcludeSearch(e.target.value)}
           />
@@ -247,40 +247,40 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
         </div>
 
         <button className="btn-primary" onClick={buildPlan} disabled={totalSlots === 0}>
-          <Wand2 size={16} /> Составить план
+          <Wand2 size={16} /> Скласти план
         </button>
         <p className="text-xs text-slate-500">
-          Перерыв между нарядами: {settings.cooldownDays} дн. Изменить — в «Настройках».
+          Перерва між нарядами: {settings.cooldownDays} дн. Змінити — у «Налаштуваннях».
         </p>
       </div>
 
-      {/* Предпросмотр */}
+      {/* Попередній перегляд */}
       <div className="flex flex-col gap-3">
         {saved !== null && (
           <div className="card flex items-center gap-3 border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
             <Check size={18} />
             <span>
-              Записано назначений: <b>{saved}</b>. Рейтинг обновлён.
+              Записано призначень: <b>{saved}</b>. Рейтинг оновлено.
             </span>
             <button className="btn-secondary btn-sm ml-auto" onClick={onDone}>
-              Открыть таблицу
+              Відкрити таблицю
             </button>
           </div>
         )}
 
         {existingOnDates.length > 0 && !proposals && (
           <div className="card p-3 text-sm text-slate-700">
-            <p className="mb-1 font-medium">На выбранные даты уже есть записи ({existingOnDates.length}):</p>
+            <p className="mb-1 font-medium">На обрані дати вже є записи ({existingOnDates.length}):</p>
             <p className="text-xs text-slate-500">
-              Эти люди будут считаться занятыми и в план не попадут. Посмотреть или удалить можно в «Журнале».
+              Ці люди вважатимуться зайнятими і в план не потраплять. Переглянути або видалити можна в «Журналі».
             </p>
           </div>
         )}
 
         {!proposals && saved === null && (
-          <EmptyState title="Задайте параметры и нажмите «Составить план»">
-            Алгоритм выберет тех, у кого меньше всего баллов. При равенстве — кто дольше отдыхал, затем кто реже
-            ходил именно в этот наряд. Самые «дорогие» наряды раздаются первыми.
+          <EmptyState title="Задайте параметри та натисніть «Скласти план»">
+            Алгоритм обере тих, у кого найменше балів. За рівності — хто довше відпочивав, потім хто рідше ходив
+            саме в цей наряд. Найдорожчі наряди роздаються першими.
           </EmptyState>
         )}
 
@@ -301,7 +301,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                 <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2">
                   <h3 className="text-sm font-semibold capitalize">{formatHuman(date)}</h3>
                   <span className="text-xs text-slate-500">
-                    {list.filter((p) => p.personId).length}/{list.length} мест заполнено
+                    {list.filter((p) => p.personId).length}/{list.length} місць заповнено
                   </span>
                 </div>
                 <div>
@@ -324,7 +324,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                           value={p.personId ?? ''}
                           onChange={(e) => setPerson(p.key, e.target.value || null)}
                         >
-                          <option value="">— не назначен —</option>
+                          <option value="">— не призначено —</option>
                           {cands.map((c) => (
                             <option
                               key={c.person.id}
@@ -332,9 +332,9 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                               disabled={!c.available && c.person.id !== p.personId}
                             >
                               {c.person.name} · {c.points} б.
-                              {c.restDays === null ? ' · не ходил' : ` · отдых ${c.restDays} дн.`}
-                              {c.busy && c.person.id !== p.personId ? ' · ЗАНЯТ' : ''}
-                              {!c.available ? ' · не в строю' : ''}
+                              {c.restDays === null ? ' · не ходив' : ` · відпочинок ${c.restDays} дн.`}
+                              {c.busy && c.person.id !== p.personId ? ' · ЗАЙНЯТИЙ' : ''}
+                              {!c.available ? ' · не у строю' : ''}
                             </option>
                           ))}
                         </select>
@@ -343,7 +343,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                         </span>
                         <button
                           className="btn-ghost btn-sm text-red-600"
-                          title="Убрать место из плана"
+                          title="Прибрати місце з плану"
                           onClick={() => removeProposal(p.key)}
                         >
                           <Trash2 size={14} />
@@ -357,12 +357,12 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
 
             <div className="card flex flex-wrap items-center gap-2 p-3">
               <button className="btn-secondary" onClick={buildPlan}>
-                <RefreshCw size={14} /> Пересчитать
+                <RefreshCw size={14} /> Перерахувати
               </button>
               <span className="text-sm text-slate-600">
-                Будет записано: <b>{proposals.filter((p) => p.personId).length}</b> назначений
+                Буде записано: <b>{proposals.filter((p) => p.personId).length}</b> призначень
                 {proposals.some((p) => !p.personId) && (
-                  <span className="ml-1 text-red-600">(пустые места не записываются)</span>
+                  <span className="ml-1 text-red-600">(порожні місця не записуються)</span>
                 )}
               </span>
               <button
@@ -370,13 +370,13 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                 onClick={confirm}
                 disabled={proposals.every((p) => !p.personId)}
               >
-                <Check size={16} /> Подтвердить и записать
+                <Check size={16} /> Підтвердити та записати
               </button>
             </div>
 
             <p className="text-xs text-slate-500">
-              В выпадающем списке люди отсортированы так же, как их выбирает алгоритм. Можно заменить любого вручную
-              — баллы начислятся тому, кто в итоге записан.
+              У випадному списку люди відсортовані так само, як їх обирає алгоритм. Можна замінити будь-кого вручну
+              — бали нарахуються тому, кого врешті записано.
             </p>
           </>
         )}

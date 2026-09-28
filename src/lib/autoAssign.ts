@@ -8,12 +8,12 @@ export interface DutyRequest {
 }
 
 export interface PlanRequest {
-  /** Даты, на которые составляем план (по возрастанию). */
+  /** Дати, на які складаємо план (за зростанням). */
   dates: ISODate[]
   duties: DutyRequest[]
-  /** Ограничить выбор указанными группами (пусто — все). */
+  /** Обмежити вибір вказаними групами (порожньо — усі). */
   groups?: string[]
-  /** Вручную исключённые на этот план люди. */
+  /** Вручну виключені з цього плану люди. */
   excludePersonIds?: string[]
 }
 
@@ -21,13 +21,13 @@ export interface Proposal {
   key: string
   date: ISODate
   dutyTypeId: string
-  /** null — не хватило людей. */
+  /** null — не вистачило людей. */
   personId: string | null
-  /** Баллы человека до назначения (для объяснения выбора). */
+  /** Бали людини до призначення (для пояснення вибору). */
   pointsBefore: number
-  /** Дней с последнего наряда до этой даты (null — не ходил). */
+  /** Днів з останнього наряду до цієї дати (null — не ходив). */
   restDays: number | null
-  /** Пояснение, почему выбран (или почему не удалось). */
+  /** Пояснення, чому обрано (або чому не вдалося). */
   note: string
 }
 
@@ -36,7 +36,7 @@ export interface PlanResult {
   warnings: string[]
 }
 
-/** Виртуальное состояние человека во время планирования. */
+/** Віртуальний стан людини під час планування. */
 interface VState {
   person: Person
   points: number
@@ -95,7 +95,7 @@ function violatesCooldown(s: VState, date: ISODate, cooldownDays: number): boole
   return false
 }
 
-/** Дней отдыха перед `date` (учитываются только задействия строго до этой даты). */
+/** Днів відпочинку перед `date` (враховуються лише залучення строго до цієї дати). */
 function restBefore(s: VState, date: ISODate): number | null {
   let last: ISODate | null = null
   for (const d of s.dates) {
@@ -115,9 +115,9 @@ function seededRandom(seed: number) {
 }
 
 /**
- * Жадный планировщик: для каждой даты, начиная с самых «дорогих» нарядов,
- * ставит человека с минимальным рейтингом. Ничьи — по времени отдыха,
- * количеству таких же нарядов, затем случайно или по алфавиту.
+ * Жадібний планувальник: для кожної дати, починаючи з найдорожчих нарядів,
+ * ставить людину з мінімальним рейтингом. Нічиї — за часом відпочинку,
+ * кількістю таких самих нарядів, потім випадково або за алфавітом.
  */
 export function planAssignments(data: AppData, req: PlanRequest): PlanResult {
   const warnings: string[] = []
@@ -143,11 +143,11 @@ export function planAssignments(data: AppData, req: PlanRequest): PlanResult {
   )
 
   if (eligibleBase.length === 0) {
-    warnings.push('Нет ни одного человека, доступного для назначения.')
+    warnings.push('Немає жодної людини, доступної для призначення.')
   }
 
   for (const date of dates) {
-    // случайные ключи фиксируем на день, чтобы сортировка была стабильной
+    // випадкові ключі фіксуємо на день, щоб сортування було стабільним
     const tieKey = new Map<string, number>()
     for (const s of eligibleBase) tieKey.set(s.person.id, rnd())
 
@@ -169,7 +169,7 @@ export function planAssignments(data: AppData, req: PlanRequest): PlanResult {
             personId: null,
             pointsBefore: 0,
             restDays: null,
-            note: 'Не хватило людей',
+            note: 'Не вистачило людей',
           })
           continue
         }
@@ -190,14 +190,14 @@ export function planAssignments(data: AppData, req: PlanRequest): PlanResult {
           const cb = b.countByDuty[duty.id] ?? 0
           if (ca !== cb) return ca - cb
           if (randomTies) return (tieKey.get(a.person.id) ?? 0) - (tieKey.get(b.person.id) ?? 0)
-          return a.person.name.localeCompare(b.person.name, 'ru')
+          return a.person.name.localeCompare(b.person.name, 'uk')
         })
 
         const chosen = pool[0]
         const rest = restBefore(chosen, date)
         const parts: string[] = [`${chosen.points} б.`]
-        parts.push(rest === null ? 'ещё не ходил' : `отдых ${rest} дн.`)
-        if (relaxed) parts.push('⚠ нарушен перерыв')
+        parts.push(rest === null ? 'ще не ходив' : `відпочинок ${rest} дн.`)
+        if (relaxed) parts.push('⚠ порушено перерву')
 
         proposals.push({
           key: uid(),
@@ -215,12 +215,12 @@ export function planAssignments(data: AppData, req: PlanRequest): PlanResult {
 
   const missing = proposals.filter((p) => !p.personId).length
   if (missing > 0) {
-    warnings.push(`Не удалось заполнить ${missing} мест — не хватает свободных людей.`)
+    warnings.push(`Не вдалося заповнити ${missing} місць — бракує вільних людей.`)
   }
-  const relaxedCount = proposals.filter((p) => p.note.includes('нарушен перерыв')).length
+  const relaxedCount = proposals.filter((p) => p.note.includes('порушено перерву')).length
   if (relaxedCount > 0) {
     warnings.push(
-      `Для ${relaxedCount} назначений пришлось нарушить минимальный перерыв (${cooldownDays} дн.) — людей не хватило.`,
+      `Для ${relaxedCount} призначень довелося порушити мінімальну перерву (${cooldownDays} дн.) — людей не вистачило.`,
     )
   }
 
@@ -236,8 +236,8 @@ export interface Candidate {
 }
 
 /**
- * Список всех людей для ручной замены в предпросмотре — отсортирован как в автоназначении.
- * `plannedDates` — даты, уже занятые в текущем плане по каждому человеку.
+ * Список усіх людей для ручної заміни в попередньому перегляді — відсортований як в автопризначенні.
+ * `plannedByPerson` — дати, вже зайняті в поточному плані за кожною людиною.
  */
 export function rankCandidates(
   data: AppData,
@@ -263,7 +263,7 @@ export function rankCandidates(
     if (a.available !== b.available) return a.available ? -1 : 1
     if (a.busy !== b.busy) return a.busy ? 1 : -1
     if (a.points !== b.points) return a.points - b.points
-    return a.person.name.localeCompare(b.person.name, 'ru')
+    return a.person.name.localeCompare(b.person.name, 'uk')
   })
   return out
 }

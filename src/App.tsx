@@ -12,12 +12,12 @@ import { SettingsPage } from './components/SettingsPage'
 type Tab = 'table' | 'assign' | 'history' | 'people' | 'duties' | 'settings'
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof Table2 }> = [
-  { id: 'table', label: 'Таблица', icon: Table2 },
-  { id: 'assign', label: 'Назначить', icon: Wand2 },
+  { id: 'table', label: 'Таблиця', icon: Table2 },
+  { id: 'assign', label: 'Призначити', icon: Wand2 },
   { id: 'history', label: 'Журнал', icon: CalendarDays },
   { id: 'people', label: 'Люди', icon: Users },
-  { id: 'duties', label: 'Виды нарядов', icon: ListChecks },
-  { id: 'settings', label: 'Настройки', icon: Settings },
+  { id: 'duties', label: 'Види нарядів', icon: ListChecks },
+  { id: 'settings', label: 'Налаштування', icon: Settings },
 ]
 
 function readTab(): Tab {
@@ -47,7 +47,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <img src="./favicon.svg" alt="" className="h-7 w-7" />
             <span className="text-base font-bold tracking-tight text-slate-900">DutyRank</span>
-            <span className="hidden text-xs text-slate-500 sm:inline">учёт нарядов по рейтингу</span>
+            <span className="hidden text-xs text-slate-500 sm:inline">облік нарядів за рейтингом</span>
           </div>
           <nav className="ml-auto flex gap-1 overflow-x-auto">
             {TABS.map((t) => {

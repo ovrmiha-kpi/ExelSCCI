@@ -1,5 +1,5 @@
 import { addDays, differenceInCalendarDays, format, parseISO, isValid } from 'date-fns'
-import { ru } from 'date-fns/locale'
+import { uk } from 'date-fns/locale'
 import type { ISODate } from '../types'
 
 export function todayISO(): ISODate {
@@ -22,7 +22,7 @@ export function addDaysISO(iso: ISODate, n: number): ISODate {
   return toISO(addDays(parseISO(iso), n))
 }
 
-/** Разница в календарных днях: a - b. */
+/** Різниця в календарних днях: a - b. */
 export function diffDays(a: ISODate, b: ISODate): number {
   return differenceInCalendarDays(parseISO(a), parseISO(b))
 }
@@ -32,10 +32,10 @@ export function formatShort(iso: ISODate): string {
 }
 
 export function formatHuman(iso: ISODate): string {
-  return format(parseISO(iso), 'd MMM, EEEEEE', { locale: ru })
+  return format(parseISO(iso), 'd MMM, EEEEEE', { locale: uk })
 }
 
-/** Все даты от from до to включительно. */
+/** Усі дати від from до to включно. */
 export function dateRange(from: ISODate, to: ISODate): ISODate[] {
   const out: ISODate[] = []
   let cur = from
@@ -48,21 +48,26 @@ export function dateRange(from: ISODate, to: ISODate): ISODate[] {
   return out
 }
 
-export function pointsLabel(n: number): string {
+/** Українська множина: one / few / many. */
+function plural(n: number, one: string, few: string, many: string): string {
   const abs = Math.abs(n)
   const mod10 = abs % 10
   const mod100 = abs % 100
-  if (mod10 === 1 && mod100 !== 11) return `${n} балл`
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${n} балла`
-  return `${n} баллов`
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few
+  return many
+}
+
+export function pointsLabel(n: number): string {
+  return `${n} ${plural(n, 'бал', 'бали', 'балів')}`
+}
+
+export function daysLabel(n: number): string {
+  return `${n} ${plural(n, 'день', 'дні', 'днів')}`
 }
 
 export function daysAgoLabel(days: number): string {
-  if (days === 0) return 'сегодня'
-  if (days === 1) return 'вчера'
-  const mod10 = days % 10
-  const mod100 = days % 100
-  if (mod10 === 1 && mod100 !== 11) return `${days} день назад`
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return `${days} дня назад`
-  return `${days} дней назад`
+  if (days === 0) return 'сьогодні'
+  if (days === 1) return 'вчора'
+  return `${daysLabel(days)} тому`
 }

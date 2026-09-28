@@ -13,7 +13,7 @@ interface Props {
   presetDate?: string
 }
 
-/** Обёртка: форма монтируется заново при каждом открытии, поэтому состояние всегда свежее. */
+/** Обгортка: форма монтується заново при кожному відкритті, тому стан завжди свіжий. */
 export function ManualAssignModal(props: Props) {
   if (!props.open) return null
   return <ManualAssignForm {...props} />
@@ -80,14 +80,14 @@ function ManualAssignForm({ open, onClose, presetPersonId, presetDate }: Props) 
     <Modal
       open={open}
       onClose={onClose}
-      title="Записать наряд вручную"
+      title="Записати наряд вручну"
       footer={
         <>
           <button className="btn-secondary" onClick={onClose}>
-            Отмена
+            Скасувати
           </button>
           <button className="btn-primary" onClick={submit} disabled={!dutyId || selected.size === 0}>
-            Записать {selected.size > 0 ? `(${selected.size})` : ''}
+            Записати {selected.size > 0 ? `(${selected.size})` : ''}
           </button>
         </>
       }
@@ -96,7 +96,7 @@ function ManualAssignForm({ open, onClose, presetPersonId, presetDate }: Props) 
         <Field label="Дата">
           <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} />
         </Field>
-        <Field label="Вид наряда">
+        <Field label="Вид наряду">
           <select
             className="input"
             value={dutyId}
@@ -113,7 +113,7 @@ function ManualAssignForm({ open, onClose, presetPersonId, presetDate }: Props) 
             ))}
           </select>
         </Field>
-        <Field label="Баллы">
+        <Field label="Бали">
           <input
             type="number"
             className="input"
@@ -124,23 +124,28 @@ function ManualAssignForm({ open, onClose, presetPersonId, presetDate }: Props) 
         </Field>
       </div>
 
-      <Field label="Заметка (необязательно)" className="mt-3">
-        <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="напр. замена за Петрова" />
+      <Field label="Примітка (необов’язково)" className="mt-3">
+        <input
+          className="input"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="напр. заміна за Коваленка"
+        />
       </Field>
 
       <div className="mt-3">
         <div className="mb-1 flex items-center justify-between">
-          <span className="label mb-0">Кто идёт (отсортировано по рейтингу, меньше — выше)</span>
+          <span className="label mb-0">Хто йде (відсортовано за рейтингом, менше — вище)</span>
           <input
             className="input w-40 py-1 text-xs"
-            placeholder="поиск…"
+            placeholder="пошук…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <div className="max-h-72 overflow-y-auto rounded-md border border-slate-200">
           {list.length === 0 && (
-            <p className="px-3 py-6 text-center text-sm text-slate-500">Никого не найдено</p>
+            <p className="px-3 py-6 text-center text-sm text-slate-500">Нікого не знайдено</p>
           )}
           {list.map((p) => {
             const s = stats.get(p.id)
@@ -161,7 +166,7 @@ function ManualAssignForm({ open, onClose, presetPersonId, presetDate }: Props) 
                   {p.name}
                   {p.group && <span className="ml-2 text-xs text-slate-500">{p.group}</span>}
                 </span>
-                {busy && <span className="badge bg-amber-100 text-amber-800">уже в наряде</span>}
+                {busy && <span className="badge bg-amber-100 text-amber-800">уже в наряді</span>}
                 {p.status !== 'active' && <StatusBadge status={p.status} />}
                 <span className="w-14 text-right tabular-nums text-slate-600">{s?.points ?? 0} б.</span>
               </button>

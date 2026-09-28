@@ -35,11 +35,11 @@ export function PersonDetailsModal({ personId, onClose }: { personId: string | n
         {person.group && <span className="badge bg-slate-100 text-slate-700">{person.group}</span>}
         <span className="badge bg-brand-100 text-brand-800">{pointsLabel(stats.points)}</span>
         <span className="text-slate-500">
-          {stats.count} нарядов ·{' '}
-          {stats.daysSinceLast === null ? 'ещё не ходил' : `последний ${daysAgoLabel(stats.daysSinceLast)}`}
+          {stats.count} нарядів ·{' '}
+          {stats.daysSinceLast === null ? 'ще не ходив' : `останній ${daysAgoLabel(stats.daysSinceLast)}`}
         </span>
         {person.basePoints !== 0 && (
-          <span className="text-xs text-slate-500">начальные баллы: {person.basePoints}</span>
+          <span className="text-xs text-slate-500">початкові бали: {person.basePoints}</span>
         )}
       </div>
       {person.note && <p className="mt-2 text-sm text-slate-600">{person.note}</p>}
@@ -58,7 +58,7 @@ export function PersonDetailsModal({ personId, onClose }: { personId: string | n
       </div>
 
       <div className="mt-4 max-h-96 overflow-y-auto rounded-md border border-slate-200">
-        {history.length === 0 && <p className="px-3 py-6 text-center text-sm text-slate-500">Нарядов ещё не было</p>}
+        {history.length === 0 && <p className="px-3 py-6 text-center text-sm text-slate-500">Нарядів ще не було</p>}
         {history.map((a) => (
           <div
             key={a.id}
@@ -68,10 +68,10 @@ export function PersonDetailsModal({ personId, onClose }: { personId: string | n
             <DutyBadge duty={dutyById.get(a.dutyTypeId)} />
             <span className="tabular-nums text-slate-700">{a.points} б.</span>
             <span className="flex-1 truncate text-xs text-slate-500">{a.note}</span>
-            <span className="text-xs text-slate-400">{a.source === 'auto' ? 'авто' : 'вручную'}</span>
+            <span className="text-xs text-slate-400">{a.source === 'auto' ? 'авто' : 'вручну'}</span>
             <button
               className="btn-ghost btn-sm text-red-600"
-              title="Удалить запись"
+              title="Видалити запис"
               onClick={() => removeAssignment(a.id)}
             >
               <Trash2 size={14} />

@@ -52,7 +52,7 @@ export function HistoryPage() {
           <input type="date" className="input w-36" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
         <select className="input w-44" value={dutyId} onChange={(e) => setDutyId(e.target.value)}>
-          <option value="">Все наряды</option>
+          <option value="">Усі наряди</option>
           {duties.map((d) => (
             <option key={d.id} value={d.id}>
               {d.name}
@@ -60,9 +60,9 @@ export function HistoryPage() {
           ))}
         </select>
         <select className="input w-48" value={personId} onChange={(e) => setPersonId(e.target.value)}>
-          <option value="">Все люди</option>
+          <option value="">Усі люди</option>
           {[...people]
-            .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+            .sort((a, b) => a.name.localeCompare(b.name, 'uk'))
             .map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -70,7 +70,7 @@ export function HistoryPage() {
             ))}
         </select>
         <span className="text-sm text-slate-500">
-          {filtered.length} записей · {filtered.reduce((s, a) => s + a.points, 0)} б.
+          {filtered.length} записів · {filtered.reduce((s, a) => s + a.points, 0)} б.
         </span>
         <div className="ml-auto flex gap-2">
           <button
@@ -81,28 +81,28 @@ export function HistoryPage() {
             <Download size={14} /> Excel
           </button>
           <button className="btn-primary" onClick={() => setAddOpen(true)}>
-            <Plus size={14} /> Записать
+            <Plus size={14} /> Записати
           </button>
         </div>
       </div>
 
       {byDate.length === 0 && (
-        <EmptyState title="Записей за этот период нет">Измените фильтры или добавьте наряд вручную.</EmptyState>
+        <EmptyState title="Записів за цей період немає">Змініть фільтри або додайте наряд вручну.</EmptyState>
       )}
 
       {byDate.map(([date, list]) => (
         <div key={date} className="card overflow-hidden">
           <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2">
             <h3 className="text-sm font-semibold capitalize">{formatHuman(date)}</h3>
-            {date === today && <span className="badge bg-brand-100 text-brand-800">сегодня</span>}
+            {date === today && <span className="badge bg-brand-100 text-brand-800">сьогодні</span>}
             {date > today && <span className="badge bg-sky-100 text-sky-800">план</span>}
             <span className="text-xs text-slate-500">
-              {list.length} чел. · {list.reduce((s, a) => s + a.points, 0)} б.
+              {list.length} осіб · {list.reduce((s, a) => s + a.points, 0)} б.
             </span>
             <button
               className="btn-ghost btn-sm ml-auto text-red-600"
               onClick={() => {
-                if (confirm(`Удалить все ${list.length} записей за ${formatHuman(date)}?`)) removeAssignmentsByDate(date)
+                if (confirm(`Видалити всі ${list.length} записів за ${formatHuman(date)}?`)) removeAssignmentsByDate(date)
               }}
             >
               <Trash2 size={14} /> весь день
@@ -119,7 +119,7 @@ export function HistoryPage() {
                   <div className="w-40 shrink-0">
                     <DutyBadge duty={dutyById.get(a.dutyTypeId)} />
                   </div>
-                  <span className="w-56 truncate font-medium">{p?.name ?? '— удалён —'}</span>
+                  <span className="w-56 truncate font-medium">{p?.name ?? '— видалено —'}</span>
                   <span className="w-24 truncate text-xs text-slate-500">{p?.group}</span>
                   <input
                     type="number"
@@ -127,16 +127,16 @@ export function HistoryPage() {
                     className="input w-16 py-0.5 text-center"
                     value={a.points}
                     onChange={(e) => updateAssignment(a.id, { points: Number(e.target.value) || 0 })}
-                    title="Баллы за эту запись"
+                    title="Бали за цей запис"
                   />
                   <input
                     className="input flex-1 py-0.5 text-xs"
-                    placeholder="заметка"
+                    placeholder="примітка"
                     value={a.note}
                     onChange={(e) => updateAssignment(a.id, { note: e.target.value })}
                   />
-                  <span className="text-xs text-slate-400">{a.source === 'auto' ? 'авто' : 'вручную'}</span>
-                  <button className="btn-ghost btn-sm text-red-600" onClick={() => removeAssignment(a.id)} title="Удалить">
+                  <span className="text-xs text-slate-400">{a.source === 'auto' ? 'авто' : 'вручну'}</span>
+                  <button className="btn-ghost btn-sm text-red-600" onClick={() => removeAssignment(a.id)} title="Видалити">
                     <Trash2 size={14} />
                   </button>
                 </div>

@@ -41,7 +41,7 @@ export function Modal({
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <h2 className="text-base font-semibold">{title}</h2>
-          <button className="btn-ghost btn-sm -mr-1" onClick={onClose} aria-label="Закрыть">
+          <button className="btn-ghost btn-sm -mr-1" onClick={onClose} aria-label="Закрити">
             <X size={16} />
           </button>
         </div>

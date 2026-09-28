@@ -47,7 +47,7 @@ export function RatingTable() {
   }, [period, from, to, today])
 
   const groups = useMemo(
-    () => [...new Set(people.map((p) => p.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru')),
+    () => [...new Set(people.map((p) => p.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'uk')),
     [people],
   )
 
@@ -85,7 +85,7 @@ export function RatingTable() {
       }),
       col.accessor((r) => r.person.name, {
         id: 'name',
-        header: 'ФИО',
+        header: 'ПІБ',
         cell: (ctx) => (
           <button
             className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
@@ -94,11 +94,11 @@ export function RatingTable() {
             {ctx.getValue()}
           </button>
         ),
-        sortingFn: (a, b) => a.original.person.name.localeCompare(b.original.person.name, 'ru'),
+        sortingFn: (a, b) => a.original.person.name.localeCompare(b.original.person.name, 'uk'),
       }),
       col.accessor((r) => r.person.group, {
         id: 'group',
-        header: 'Группа',
+        header: 'Група',
         cell: (ctx) => <span className="text-slate-600">{ctx.getValue() || '—'}</span>,
       }),
       col.accessor((r) => r.person.status, {
@@ -123,13 +123,13 @@ export function RatingTable() {
       ),
       col.accessor((r) => r.count, {
         id: 'count',
-        header: 'Всего',
+        header: 'Всього',
         cell: (ctx) => <span className="tabular-nums font-medium">{ctx.getValue()}</span>,
         meta: { align: 'center' },
       }),
       col.accessor((r) => r.points, {
         id: 'points',
-        header: 'Баллы',
+        header: 'Бали',
         cell: (ctx) => {
           const s = ctx.row.original
           return (
@@ -138,7 +138,7 @@ export function RatingTable() {
                 {ctx.getValue()}
               </span>
               {period === 'all' && s.person.basePoints !== 0 && (
-                <span className="text-xs text-slate-400" title="в т.ч. начальные баллы">
+                <span className="text-xs text-slate-400" title="у т.ч. початкові бали">
                   (+{s.person.basePoints})
                 </span>
               )}
@@ -149,7 +149,7 @@ export function RatingTable() {
       }),
       col.accessor((r) => r.lastDate ?? '', {
         id: 'last',
-        header: 'Последний',
+        header: 'Останній',
         cell: (ctx) => {
           const s = ctx.row.original
           if (!s.lastDate) return <span className="text-slate-400">—</span>
@@ -164,10 +164,10 @@ export function RatingTable() {
       }),
       col.accessor((r) => (r.daysSinceLast === null ? Number.POSITIVE_INFINITY : r.daysSinceLast), {
         id: 'rest',
-        header: 'Отдых',
+        header: 'Відпочинок',
         cell: (ctx) => {
           const v = ctx.row.original.daysSinceLast
-          if (v === null) return <span className="text-slate-400">не ходил</span>
+          if (v === null) return <span className="text-slate-400">не ходив</span>
           return (
             <span className={clsx('tabular-nums', v <= 1 ? 'text-amber-700' : 'text-slate-700')}>
               {daysAgoLabel(v)}
@@ -181,7 +181,7 @@ export function RatingTable() {
         cell: (ctx) => (
           <button
             className="btn-ghost btn-sm"
-            title="Записать наряд этому человеку"
+            title="Записати наряд цій людині"
             onClick={() => setAssignFor(ctx.row.original.person.id)}
           >
             <Plus size={14} /> наряд
@@ -214,7 +214,7 @@ export function RatingTable() {
     return t
   }, [rows, duties, mode])
 
-  // Минимальный рейтинг среди тех, кто в строю — подсвечиваем «следующих кандидатов».
+  // Мінімальний рейтинг серед тих, хто у строю — підсвічуємо «наступних кандидатів».
   const lowestActive = useMemo(() => {
     const act = rows.filter((r) => r.person.status === 'active').map((r) => r.points)
     return act.length ? Math.min(...act) : null
@@ -222,8 +222,8 @@ export function RatingTable() {
 
   if (people.length === 0) {
     return (
-      <EmptyState title="Пока нет ни одного человека">
-        Добавьте личный состав на вкладке «Люди» или загрузите демо-данные в разделе «Данные».
+      <EmptyState title="Поки немає жодної людини">
+        Додайте особовий склад на вкладці «Люди» або завантажте демо-дані в розділі «Налаштування».
       </EmptyState>
     )
   }
@@ -235,7 +235,7 @@ export function RatingTable() {
           <Search size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-400" />
           <input
             className="input w-56 pl-8"
-            placeholder="Поиск по ФИО / группе"
+            placeholder="Пошук за ПІБ / групою"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -243,7 +243,7 @@ export function RatingTable() {
 
         {groups.length > 0 && (
           <select className="input w-40" value={group} onChange={(e) => setGroup(e.target.value)}>
-            <option value="">Все группы</option>
+            <option value="">Усі групи</option>
             {groups.map((g) => (
               <option key={g} value={g}>
                 {g}
@@ -255,11 +255,11 @@ export function RatingTable() {
         <div className="flex items-center gap-1 rounded-md border border-slate-300 bg-white p-0.5">
           {(
             [
-              ['all', 'Всё время'],
+              ['all', 'Весь час'],
               ['7', '7 дн.'],
               ['30', '30 дн.'],
               ['90', '90 дн.'],
-              ['custom', 'Период'],
+              ['custom', 'Період'],
             ] as Array<[Period, string]>
           ).map(([k, label]) => (
             <button
@@ -285,8 +285,8 @@ export function RatingTable() {
         <div className="flex items-center gap-1 rounded-md border border-slate-300 bg-white p-0.5">
           {(
             [
-              ['count', 'Кол-во'],
-              ['points', 'Баллы'],
+              ['count', 'Кількість'],
+              ['points', 'Бали'],
             ] as Array<['count' | 'points', string]>
           ).map(([k, label]) => (
             <button
@@ -296,16 +296,16 @@ export function RatingTable() {
                 'rounded px-2 py-1 text-xs font-medium',
                 mode === k ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-100',
               )}
-              title="Что показывать в колонках по видам нарядов"
+              title="Що показувати в колонках за видами нарядів"
             >
               {label}
             </button>
           ))}
         </div>
 
-        <Toggle checked={onlyActive} onChange={setOnlyActive} label="Только в строю" />
+        <Toggle checked={onlyActive} onChange={setOnlyActive} label="Тільки у строю" />
         {dutyTypes.some((d) => d.archived) && (
-          <Toggle checked={showArchived} onChange={setShowArchived} label="Архивные наряды" />
+          <Toggle checked={showArchived} onChange={setShowArchived} label="Архівні наряди" />
         )}
 
         <div className="ml-auto flex gap-2">
@@ -316,7 +316,7 @@ export function RatingTable() {
             <Download size={14} /> Excel
           </button>
           <button className="btn-primary" onClick={() => setAssignFor('')}>
-            <Plus size={14} /> Записать наряд
+            <Plus size={14} /> Записати наряд
           </button>
         </div>
       </div>
@@ -382,7 +382,7 @@ export function RatingTable() {
               {rows.length === 0 && (
                 <tr>
                   <td className="td py-8 text-center text-slate-500" colSpan={columns.length}>
-                    Ничего не найдено по заданным фильтрам
+                    Нічого не знайдено за заданими фільтрами
                   </td>
                 </tr>
               )}
@@ -390,7 +390,7 @@ export function RatingTable() {
             <tfoot>
               <tr className="bg-slate-50 font-medium">
                 <td className="td" colSpan={4}>
-                  Итого: {rows.length} чел.
+                  Разом: {rows.length} осіб
                 </td>
                 {duties.map((d) => (
                   <td key={d.id} className="td text-center tabular-nums">
@@ -402,7 +402,7 @@ export function RatingTable() {
                   {totals.points}
                   {rows.length > 0 && (
                     <span className="ml-1 text-xs font-normal text-slate-500">
-                      (ср. {(totals.points / rows.length).toFixed(1)})
+                      (сер. {(totals.points / rows.length).toFixed(1)})
                     </span>
                   )}
                 </td>
@@ -414,8 +414,8 @@ export function RatingTable() {
       </div>
 
       <p className="text-xs text-slate-500">
-        Подсвечены люди с минимальным рейтингом среди тех, кто в строю — именно их автоназначение поставит первыми.
-        Клик по заголовку — сортировка, клик по ФИО — история человека.
+        Підсвічено людей з мінімальним рейтингом серед тих, хто у строю — саме їх автопризначення поставить першими.
+        Клік по заголовку — сортування, клік по ПІБ — історія людини.
       </p>
 
       <ManualAssignModal

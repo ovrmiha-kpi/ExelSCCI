@@ -31,7 +31,7 @@ export function PeoplePage() {
     const q = search.trim().toLowerCase()
     return [...people]
       .filter((p) => !q || p.name.toLowerCase().includes(q) || p.group.toLowerCase().includes(q))
-      .sort((a, b) => a.group.localeCompare(b.group, 'ru') || a.name.localeCompare(b.name, 'ru'))
+      .sort((a, b) => a.group.localeCompare(b.group, 'uk') || a.name.localeCompare(b.name, 'uk'))
   }, [people, search])
 
   const bulkParsed = useMemo(() => parsePeopleList(bulkText), [bulkText])
@@ -41,39 +41,39 @@ export function PeoplePage() {
       <div className="card flex flex-wrap items-center gap-3 p-3">
         <input
           className="input w-56"
-          placeholder="Поиск"
+          placeholder="Пошук"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <span className="text-sm text-slate-500">
-          {people.length} чел. · в строю {people.filter((p) => p.status === 'active').length}
+          {people.length} осіб · у строю {people.filter((p) => p.status === 'active').length}
         </span>
         <div className="ml-auto flex gap-2">
           <button className="btn-secondary" onClick={() => setBulkOpen(true)}>
-            <ClipboardPaste size={14} /> Вставить список
+            <ClipboardPaste size={14} /> Вставити список
           </button>
           <button className="btn-primary" onClick={() => setEditing('new')}>
-            <Plus size={14} /> Добавить
+            <Plus size={14} /> Додати
           </button>
         </div>
       </div>
 
       {people.length === 0 ? (
-        <EmptyState title="Список личного состава пуст">
-          Нажмите «Вставить список» и скопируйте ФИО из своей Excel-таблицы — по одному в строке. Можно добавить
-          группу и стартовые баллы через точку с запятой: <code>Иванов И.И.;1 взвод;12</code>
+        <EmptyState title="Список особового складу порожній">
+          Натисніть «Вставити список» і скопіюйте ПІБ зі своєї Excel-таблиці — по одному в рядку. Можна додати
+          групу та стартові бали через крапку з комою: <code>Шевченко Т.Г.;1 взвод;12</code>
         </EmptyState>
       ) : (
         <div className="card overflow-hidden">
           <table className="w-full">
             <thead>
               <tr>
-                <th className="th">ФИО</th>
-                <th className="th">Группа</th>
+                <th className="th">ПІБ</th>
+                <th className="th">Група</th>
                 <th className="th">Статус</th>
-                <th className="th text-center">Нарядов</th>
-                <th className="th text-center">Баллы</th>
-                <th className="th">Заметка</th>
+                <th className="th text-center">Нарядів</th>
+                <th className="th text-center">Бали</th>
+                <th className="th">Примітка</th>
                 <th className="th" />
               </tr>
             </thead>
@@ -110,7 +110,7 @@ export function PeoplePage() {
                           const n = s?.count ?? 0
                           if (
                             confirm(
-                              `Удалить ${p.name}?${n ? ` Вместе с ним удалятся ${n} записей о нарядах.` : ''}`,
+                              `Видалити ${p.name}?${n ? ` Разом з ним видаляться ${n} записів про наряди.` : ''}`,
                             )
                           )
                             removePerson(p.id)
@@ -143,11 +143,11 @@ export function PeoplePage() {
       <Modal
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
-        title="Вставить список людей"
+        title="Вставити список людей"
         footer={
           <>
             <button className="btn-secondary" onClick={() => setBulkOpen(false)}>
-              Отмена
+              Скасувати
             </button>
             <button
               className="btn-primary"
@@ -156,27 +156,29 @@ export function PeoplePage() {
                 const n = addPeopleBulk(bulkParsed)
                 setBulkOpen(false)
                 setBulkText('')
-                alert(`Добавлено: ${n}. ${bulkParsed.length - n > 0 ? `Пропущено дубликатов: ${bulkParsed.length - n}.` : ''}`)
+                alert(
+                  `Додано: ${n}.${bulkParsed.length - n > 0 ? ` Пропущено дублікатів: ${bulkParsed.length - n}.` : ''}`,
+                )
               }}
             >
-              Добавить {bulkParsed.length > 0 ? `(${bulkParsed.length})` : ''}
+              Додати {bulkParsed.length > 0 ? `(${bulkParsed.length})` : ''}
             </button>
           </>
         }
       >
         <p className="mb-2 text-sm text-slate-600">
-          По одному человеку в строке. Через <code>;</code>, табуляцию или запятую можно указать группу и стартовые
-          баллы: <code>ФИО;Группа;Баллы</code>. Скопированные из Excel колонки подойдут как есть.
+          По одній людині в рядку. Через <code>;</code>, табуляцію або кому можна вказати групу та стартові бали:{' '}
+          <code>ПІБ;Група;Бали</code>. Скопійовані з Excel колонки підійдуть як є.
         </p>
         <textarea
           className="input h-56 font-mono text-xs"
-          placeholder={'Иванов И.И.;1 взвод;12\nПетров П.П.;1 взвод\nСидоров С.С.'}
+          placeholder={'Шевченко Т.Г.;1 взвод;12\nКоваленко О.В.;1 взвод\nБондаренко І.М.'}
           value={bulkText}
           onChange={(e) => setBulkText(e.target.value)}
         />
         {bulkParsed.length > 0 && (
           <p className="mt-2 text-xs text-slate-500">
-            Распознано: {bulkParsed.length}. Пример: <b>{bulkParsed[0].name}</b>
+            Розпізнано: {bulkParsed.length}. Приклад: <b>{bulkParsed[0].name}</b>
             {bulkParsed[0].group && ` · ${bulkParsed[0].group}`}
             {bulkParsed[0].basePoints !== 0 && ` · ${bulkParsed[0].basePoints} б.`}
           </p>
@@ -209,11 +211,11 @@ function PersonForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={person ? 'Редактировать' : 'Новый человек'}
+      title={person ? 'Редагувати' : 'Нова людина'}
       footer={
         <>
           <button className="btn-secondary" onClick={onClose}>
-            Отмена
+            Скасувати
           </button>
           <button
             className="btn-primary"
@@ -228,17 +230,17 @@ function PersonForm({
               })
             }
           >
-            Сохранить
+            Зберегти
           </button>
         </>
       }
     >
       <div className="flex flex-col gap-3">
-        <Field label="ФИО">
+        <Field label="ПІБ">
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Группа / подразделение">
+          <Field label="Група / підрозділ">
             <input
               className="input"
               value={group}
@@ -263,8 +265,8 @@ function PersonForm({
           </Field>
         </div>
         <Field
-          label="Начальные баллы"
-          hint="Если переносите учёт из Excel — впишите сюда накопленные баллы, чтобы рейтинг не обнулился."
+          label="Початкові бали"
+          hint="Якщо переносите облік з Excel — впишіть сюди накопичені бали, щоб рейтинг не обнулився."
         >
           <input
             type="number"
@@ -274,7 +276,7 @@ function PersonForm({
             onChange={(e) => setBasePoints(e.target.value)}
           />
         </Field>
-        <Field label="Заметка">
+        <Field label="Примітка">
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
       </div>
