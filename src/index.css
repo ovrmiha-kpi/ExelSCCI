@@ -2,17 +2,122 @@
 
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Семантичні кольори — значення задаються через data-theme */
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-surface-4: var(--c-surface-4);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-fg: var(--c-fg);
+  --color-fg-muted: var(--c-fg-muted);
+  --color-fg-faint: var(--c-fg-faint);
+
+  /* Тінти для бейджів/алертів — читабельні і в light, і в dark */
+  --color-tint-brand: var(--c-tint-brand);
+  --color-tint-amber: var(--c-tint-amber);
+  --color-tint-red: var(--c-tint-red);
+  --color-tint-emerald: var(--c-tint-emerald);
+  --color-tint-sky: var(--c-tint-sky);
+  --color-tint-fuchsia: var(--c-tint-fuchsia);
+  --color-tint-orange: var(--c-tint-orange);
+  --color-tint-slate: var(--c-tint-slate);
+
   --color-brand-50: #f3f9ec;
   --color-brand-100: #e3f2d3;
   --color-brand-200: #c8e6ab;
   --color-brand-300: #a3d479;
-  --color-brand-400: #82bf4f;
-  --color-brand-500: #62a331;
-  --color-brand-600: #4b8224;
-  --color-brand-700: #3a641f;
-  --color-brand-800: #31501e;
-  --color-brand-900: #2a441c;
+  --color-brand-400: #86c956;
+  --color-brand-500: #6db63a;
+  --color-brand-600: #559a2a;
+  --color-brand-700: #427a22;
+  --color-brand-800: #35601e;
+  --color-brand-900: #2a4a1b;
   --color-brand-950: #14250b;
+}
+
+/* Темна (поточна) — за замовчуванням */
+:root,
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --c-canvas: #090e1a;
+  --c-surface: #0f1729;
+  --c-surface-2: #151f36;
+  --c-surface-3: #1b2742;
+  --c-surface-4: #223050;
+  --c-border: #22304d;
+  --c-border-strong: #33456b;
+  --c-fg: #e6edf8;
+  --c-fg-muted: #9aa9c3;
+  --c-fg-faint: #5f7090;
+  --c-tint-brand: #c8e6ab;
+  --c-tint-amber: #fcd34d;
+  --c-tint-red: #fca5a5;
+  --c-tint-emerald: #6ee7b7;
+  --c-tint-sky: #7dd3fc;
+  --c-tint-fuchsia: #e879f9;
+  --c-tint-orange: #fdba74;
+  --c-tint-slate: #cbd5e1;
+  --c-myro-from: rgb(8 47 73 / 0.85);
+  --c-myro-via: rgb(12 74 110 / 0.55);
+  --c-myro-to: rgb(15 23 42 / 0.7);
+  --c-myro-fg: rgb(224 242 254 / 0.9);
+}
+
+/* Чорна — глибша */
+html[data-theme='midnight'] {
+  color-scheme: dark;
+  --c-canvas: #000000;
+  --c-surface: #0a0a0c;
+  --c-surface-2: #121215;
+  --c-surface-3: #1a1a1f;
+  --c-surface-4: #24242b;
+  --c-border: #1c1c22;
+  --c-border-strong: #33333d;
+  --c-fg: #ececf0;
+  --c-fg-muted: #9a9aa8;
+  --c-fg-faint: #5c5c68;
+  --c-tint-brand: #c8e6ab;
+  --c-tint-amber: #fcd34d;
+  --c-tint-red: #fca5a5;
+  --c-tint-emerald: #6ee7b7;
+  --c-tint-sky: #7dd3fc;
+  --c-tint-fuchsia: #e879f9;
+  --c-tint-orange: #fdba74;
+  --c-tint-slate: #cbd5e1;
+  --c-myro-from: rgb(8 47 73 / 0.9);
+  --c-myro-via: rgb(12 74 110 / 0.6);
+  --c-myro-to: rgb(10 10 12 / 0.75);
+  --c-myro-fg: rgb(224 242 254 / 0.9);
+}
+
+/* Світла */
+html[data-theme='light'] {
+  color-scheme: light;
+  --c-canvas: #e8ecf3;
+  --c-surface: #ffffff;
+  --c-surface-2: #f3f5f9;
+  --c-surface-3: #e7ebf2;
+  --c-surface-4: #d8dee8;
+  --c-border: #d0d7e3;
+  --c-border-strong: #a8b4c8;
+  --c-fg: #0f172a;
+  --c-fg-muted: #475569;
+  --c-fg-faint: #94a3b8;
+  --c-tint-brand: #427a22;
+  --c-tint-amber: #b45309;
+  --c-tint-red: #b91c1c;
+  --c-tint-emerald: #047857;
+  --c-tint-sky: #0369a1;
+  --c-tint-fuchsia: #a21caf;
+  --c-tint-orange: #c2410c;
+  --c-tint-slate: #475569;
+  --c-myro-from: rgb(186 230 253 / 0.95);
+  --c-myro-via: rgb(224 242 254 / 0.9);
+  --c-myro-to: rgb(241 245 249 / 0.95);
+  --c-myro-fg: #0c4a6e;
 }
 
 html,
@@ -22,42 +127,115 @@ body,
 }
 
 body {
-  @apply bg-slate-100 text-slate-900 antialiased;
+  @apply bg-canvas text-fg antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
 }
 
 @utility btn {
   @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
-  @apply btn bg-brand-600 text-white hover:bg-brand-700;
+  @apply btn bg-brand-600 text-white hover:bg-brand-500;
 }
 @utility btn-secondary {
-  @apply btn border border-slate-300 bg-white text-slate-800 hover:bg-slate-50;
+  @apply btn border border-border bg-surface-2 text-fg hover:bg-surface-3;
 }
 @utility btn-ghost {
-  @apply btn text-slate-600 hover:bg-slate-200/70 hover:text-slate-900;
+  @apply btn text-fg-muted hover:bg-surface-3 hover:text-fg;
 }
 @utility btn-danger {
-  @apply btn bg-red-600 text-white hover:bg-red-700;
+  @apply btn bg-red-600 text-white hover:bg-red-500;
 }
 @utility btn-sm {
   @apply px-2 py-1 text-xs;
 }
 @utility input {
-  @apply w-full rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 shadow-xs outline-none placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 disabled:bg-slate-50 disabled:text-slate-400;
+  @apply w-full rounded-md border border-border bg-surface-3 px-2.5 py-1.5 text-sm text-fg outline-none placeholder:text-fg-faint focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50;
 }
 @utility label {
-  @apply mb-1 block text-xs font-medium text-slate-600;
+  @apply mb-1 block text-xs font-medium text-fg-muted;
 }
 @utility card {
-  @apply rounded-lg border border-slate-200 bg-white shadow-xs;
+  @apply rounded-lg border border-border bg-surface;
 }
 @utility badge {
   @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
 }
 @utility th {
-  @apply sticky top-0 z-10 border-b border-slate-200 bg-slate-50 px-3 py-2 text-left text-xs font-semibold tracking-wide text-slate-600 uppercase select-none;
+  @apply sticky top-0 z-10 border-b border-border bg-surface-2 px-3 py-2 text-left text-xs font-semibold tracking-wide text-fg-muted uppercase select-none;
 }
 @utility td {
-  @apply border-b border-slate-100 px-3 py-1.5 text-sm;
+  @apply border-b border-border/60 px-3 py-1.5 text-sm;
+}
+@utility seg {
+  @apply rounded px-2 py-1 text-xs font-medium text-fg-muted hover:bg-surface-3 hover:text-fg;
+}
+@utility seg-active {
+  @apply bg-brand-600 text-white hover:bg-brand-600 hover:text-white;
+}
+
+@utility alert-warn {
+  @apply rounded-md border border-tint-amber/40 bg-tint-amber/10 text-tint-amber;
+}
+@utility alert-danger {
+  @apply rounded-md border border-tint-red/40 bg-tint-red/10 text-tint-red;
+}
+@utility alert-ok {
+  @apply rounded-md border border-tint-emerald/40 bg-tint-emerald/10 text-tint-emerald;
+}
+
+@utility myro-cell {
+  background-image: linear-gradient(to bottom right, var(--c-myro-from), var(--c-myro-via), var(--c-myro-to));
+  color: var(--c-myro-fg);
+}
+
+html[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+html[data-theme='midnight'] input[type='date']::-webkit-calendar-picker-indicator,
+:root:not([data-theme]) input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+}
+
+/* select/option успадковують фон теми (інакше системний білий попап) */
+select.input,
+select.input option {
+  background-color: var(--c-surface-3);
+  color: var(--c-fg);
+}
+
+input[type='color'] {
+  background: transparent;
+}
+
+@keyframes journal-slide-next {
+  from {
+    opacity: 0.35;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes journal-slide-prev {
+  from {
+    opacity: 0.35;
+    transform: translateX(-28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.journal-slide-next {
+  animation: journal-slide-next 0.28s ease-out;
+}
+
+.journal-slide-prev {
+  animation: journal-slide-prev 0.28s ease-out;
 }

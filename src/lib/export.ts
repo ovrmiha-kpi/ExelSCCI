@@ -1,7 +1,8 @@
-import type { AppData, Assignment, DutyType, Person } from '../types'
+import type { AppData, Assignment, DutyType, Person, PersonTag } from '../types'
 import { PERSON_STATUS_LABEL } from '../types'
 import type { PersonStats } from './stats'
 import { formatShort, todayISO } from './dates'
+import { parseNameAndTags } from './groupC55'
 
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -16,7 +17,7 @@ function download(blob: Blob, filename: string) {
 
 export function exportJSON(data: AppData) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  download(blob, `dutyrank-backup-${todayISO()}.json`)
+  download(blob, `ExelSCCI-backup-${todayISO()}.json`)
 }
 
 export async function exportRatingXLSX(
@@ -57,7 +58,7 @@ export async function exportRatingXLSX(
   ws['!cols'] = header.map((h, i) => ({ wch: i === 1 ? 28 : Math.max(8, Math.min(24, h.length + 2)) }))
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Рейтинг')
-  XLSX.writeFile(wb, `dutyrank-rating-${todayISO()}.xlsx`)
+  XLSX.writeFile(wb, `ExelSCCI-rating-${todayISO()}.xlsx`)
 }
 
 export async function exportJournalXLSX(
@@ -88,7 +89,7 @@ export async function exportJournalXLSX(
   ws['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 28 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 30 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Журнал')
-  XLSX.writeFile(wb, `dutyrank-journal-${todayISO()}.xlsx`)
+  XLSX.writeFile(wb, `ExelSCCI-journal-${todayISO()}.xlsx`)
 }
 
 export function readFileAsText(file: File): Promise<string> {
@@ -102,19 +103,22 @@ export function readFileAsText(file: File): Promise<string> {
 
 /**
  * Розбір вставленого списку людей. Кожен рядок: `ПІБ`, `ПІБ;Група`, `ПІБ;Група;Бали`.
+ * У ПІБ розпізнаються позначки `(ж)` і `(к)`.
  * Роздільники: `;`, `\t`, `,`.
  */
-export function parsePeopleList(text: string): Array<{ name: string; group: string; basePoints: number }> {
+export function parsePeopleList(
+  text: string,
+): Array<{ name: string; group: string; basePoints: number; tags: PersonTag[] }> {
   return text
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
     .map((line) => {
       const parts = line.split(/[;\t,]/).map((s) => s.trim())
-      const name = parts[0] ?? ''
+      const parsed = parseNameAndTags(parts[0] ?? '')
       const group = parts[1] ?? ''
       const basePoints = Number(parts[2] ?? 0) || 0
-      return { name, group, basePoints }
+      return { name: parsed.name, group, basePoints, tags: parsed.tags }
     })
     .filter((r) => r.name.length > 0)
 }

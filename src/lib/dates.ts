@@ -1,4 +1,14 @@
-import { addDays, differenceInCalendarDays, format, parseISO, isValid } from 'date-fns'
+import {
+  addDays,
+  addMonths,
+  differenceInCalendarDays,
+  endOfMonth,
+  format,
+  isValid,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+} from 'date-fns'
 import { uk } from 'date-fns/locale'
 import type { ISODate } from '../types'
 
@@ -35,6 +45,50 @@ export function formatHuman(iso: ISODate): string {
   return format(parseISO(iso), 'd MMM, EEEEEE', { locale: uk })
 }
 
+/** «Пн», «Вт»… */
+export function weekdayShort(iso: ISODate): string {
+  const s = format(parseISO(iso), 'EEEEEE', { locale: uk })
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+export function dayOfMonth(iso: ISODate): number {
+  return parseISO(iso).getDate()
+}
+
+export function isWeekend(iso: ISODate): boolean {
+  const d = parseISO(iso).getDay()
+  return d === 0 || d === 6
+}
+
+/** Бали наряду з урахуванням множника вихідних (сб/нд). */
+export function dutyPointsForDate(basePoints: number, date: ISODate, weekendMultiplier = 1.33): number {
+  const mult = Number(weekendMultiplier)
+  if (!isWeekend(date) || !Number.isFinite(mult) || mult === 1) return basePoints
+  return Math.round(basePoints * mult * 100) / 100
+}
+
+/** «вересень 2026» */
+export function formatMonthTitle(iso: ISODate): string {
+  return format(parseISO(iso), 'LLLL yyyy', { locale: uk })
+}
+
+/** Початок тижня (понеділок) для дати. */
+export function startOfWeekISO(iso: ISODate): ISODate {
+  return toISO(startOfWeek(parseISO(iso), { weekStartsOn: 1 }))
+}
+
+export function startOfMonthISO(iso: ISODate): ISODate {
+  return toISO(startOfMonth(parseISO(iso)))
+}
+
+export function endOfMonthISO(iso: ISODate): ISODate {
+  return toISO(endOfMonth(parseISO(iso)))
+}
+
+export function addMonthsISO(iso: ISODate, n: number): ISODate {
+  return toISO(addMonths(parseISO(iso), n))
+}
+
 /** Усі дати від from до to включно. */
 export function dateRange(from: ISODate, to: ISODate): ISODate[] {
   const out: ISODate[] = []
@@ -67,7 +121,34 @@ export function daysLabel(n: number): string {
 }
 
 export function daysAgoLabel(days: number): string {
+  if (days < 0) return 'заплановано'
   if (days === 0) return 'сьогодні'
   if (days === 1) return 'вчора'
   return `${daysLabel(days)} тому`
+}
+
+/** Кількість днів span призначення (мін. 1). */
+export function assignmentSpanDays(a: { spanDays?: number | null }): number {
+  return Math.max(1, Math.floor(Number(a.spanDays) || 1))
+}
+
+/** Останній день включно. */
+export function assignmentEndDate(a: { date: ISODate; spanDays?: number | null }): ISODate {
+  const n = assignmentSpanDays(a)
+  return n <= 1 ? a.date : addDaysISO(a.date, n - 1)
+}
+
+export function assignmentCoversDate(
+  a: { date: ISODate; spanDays?: number | null },
+  d: ISODate,
+): boolean {
+  return a.date <= d && assignmentEndDate(a) >= d
+}
+
+export function assignmentOverlapsRange(
+  a: { date: ISODate; spanDays?: number | null },
+  from: ISODate,
+  to: ISODate,
+): boolean {
+  return a.date <= to && assignmentEndDate(a) >= from
 }
