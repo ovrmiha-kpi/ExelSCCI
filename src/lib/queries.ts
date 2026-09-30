@@ -1,8 +1,9 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
 import type { Assignment, ISODate, JournalId } from '../types'
+import { addDaysISO, assignmentOverlapsRange } from './dates'
 
-/** Записи журналу лише за видимий діапазон дат (+ опційно журнал). */
+/** Записи журналу за видимий діапазон (+ наряди, що почались раніше, але ще тривають). */
 export function useAssignmentsRange(
   from: ISODate,
   to: ISODate,
@@ -11,13 +12,15 @@ export function useAssignmentsRange(
   return (
     useLiveQuery(async () => {
       if (!from || !to) return []
-      if (journalId) {
-        return db.assignments
-          .where('[journalId+date]')
-          .between([journalId, from], [journalId, to], true, true)
-          .toArray()
-      }
-      return db.assignments.where('date').between(from, to, true, true).toArray()
+      // Span може початися раніше from (напр. кінець попереднього місяця).
+      const lookFrom = addDaysISO(from, -90)
+      const raw = journalId
+        ? await db.assignments
+            .where('[journalId+date]')
+            .between([journalId, lookFrom], [journalId, to], true, true)
+            .toArray()
+        : await db.assignments.where('date').between(lookFrom, to, true, true).toArray()
+      return raw.filter((a) => assignmentOverlapsRange(a, from, to))
     }, [from, to, journalId]) ?? []
   )
 }
@@ -29,8 +32,15 @@ export function usePersonDayAssignments(
 ): Assignment[] {
   return (
     useLiveQuery(async () => {
-      const list = await db.assignments.where('[personId+date]').equals([personId, date]).toArray()
-      return journalId ? list.filter((a) => (a.journalId ?? 'duties') === journalId) : list
+      const lookFrom = addDaysISO(date, -90)
+      const raw = await db.assignments
+        .where('[personId+date]')
+        .between([personId, lookFrom], [personId, date], true, true)
+        .toArray()
+      const overlapping = raw.filter((a) => assignmentOverlapsRange(a, date, date))
+      return journalId
+        ? overlapping.filter((a) => (a.journalId ?? 'duties') === journalId)
+        : overlapping
     }, [personId, date, journalId]) ?? []
   )
 }
@@ -47,8 +57,12 @@ export function usePersonAssignments(personId: string | null): Assignment[] {
 export function useAssignmentsOnDate(date: ISODate, journalId?: JournalId): Assignment[] {
   return (
     useLiveQuery(async () => {
-      const list = await db.assignments.where('date').equals(date).toArray()
-      return journalId ? list.filter((a) => (a.journalId ?? 'duties') === journalId) : list
+      const lookFrom = addDaysISO(date, -90)
+      const raw = await db.assignments.where('date').between(lookFrom, date, true, true).toArray()
+      const overlapping = raw.filter((a) => assignmentOverlapsRange(a, date, date))
+      return journalId
+        ? overlapping.filter((a) => (a.journalId ?? 'duties') === journalId)
+        : overlapping
     }, [date, journalId]) ?? []
   )
 }
@@ -58,9 +72,10 @@ export function useAssignmentCount(): number {
 }
 
 export function useRangeLoading(from: ISODate, to: ISODate): boolean {
-  const data = useLiveQuery(
-    () => db.assignments.where('date').between(from, to, true, true).toArray(),
-    [from, to],
-  )
+  const data = useLiveQuery(async () => {
+    if (!from || !to) return []
+    const lookFrom = addDaysISO(from, -90)
+    return db.assignments.where('date').between(lookFrom, to, true, true).toArray()
+  }, [from, to])
   return data === undefined
 }

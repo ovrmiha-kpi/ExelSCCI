@@ -15,6 +15,7 @@ import { buildAssignmentIndex, key2 } from '../lib/indexes'
 import {
   addDaysISO,
   addMonthsISO,
+  assignmentDaysLeftFrom,
   assignmentSpanDays,
   dateRange,
   dayOfMonth,
@@ -23,6 +24,7 @@ import {
   formatHuman,
   formatMonthTitle,
   formatShort,
+  isAssignmentDrawDay,
   isWeekend,
   startOfMonthISO,
   startOfWeekISO,
@@ -1050,14 +1052,20 @@ const PersonRow = memo(function PersonRow({
       continue
     }
 
-    // Багатоденний блок: малюємо лише зі стартового дня з colspan.
-    const starting = (list ?? []).filter((a) => a.date === d)
-    const spanCover = starting.reduce((m, a) => Math.max(m, assignmentSpanDays(a)), 1)
-    const colSpan = Math.min(spanCover, dates.length - di)
-    // Якщо день всередині чужого span (запис є, але старт раніше) — пропускаємо (покрито colspan).
+    // Багатоденний блок: зі старту або з першого видимого дня (перехід через місяць).
+    const isSkipped = (i: number) => Boolean(mask?.[i]) || (activeMask ? activeMask[i] === false : false)
+    const starting = (list ?? []).filter((a) => isAssignmentDrawDay(a, d, dates, di, isSkipped))
     if ((list?.length ?? 0) > 0 && starting.length === 0) {
       di += 1
       continue
+    }
+    const spanCover = starting.reduce((m, a) => Math.max(m, assignmentDaysLeftFrom(a, d)), 1)
+    let colSpan = Math.min(spanCover, dates.length - di)
+    for (let i = 1; i < colSpan; i++) {
+      if (mask?.[di + i] || (activeMask && activeMask[di + i] === false)) {
+        colSpan = i
+        break
+      }
     }
 
     const minW = dates.slice(di, di + colSpan).reduce((s, x) => {
@@ -1097,13 +1105,14 @@ const PersonRow = memo(function PersonRow({
               const duty = dutyById.get(a.dutyTypeId)
               const v = findVariant(duty, a.variantId)
               const span = assignmentSpanDays(a)
+              const cont = a.date < d
               return (
                 <span
                   key={a.id}
                   className="group/chip flex h-7 min-w-0 flex-1 items-center justify-center truncate px-0.5 text-center text-[11px] leading-none font-semibold text-white"
                   style={{ backgroundColor: duty?.color ?? '#475569', borderRadius: 0 }}
                   title={
-                    (span > 1 ? `${span} дн. · ` : '') +
+                    (span > 1 ? `${span} дн.${cont ? ' (продовження)' : ''} · ` : '') +
                     dutyHoverTitle(duty, a.points, a.variantId, a.note)
                   }
                 >
@@ -1367,12 +1376,12 @@ const DutyRow = memo(function DutyRow({
           const d = dates[di]
           const list = index.get(key2(duty.id, d))
           const isToday = d === today
-          const starting = (list ?? []).filter((a) => a.date === d)
+          const starting = (list ?? []).filter((a) => isAssignmentDrawDay(a, d, dates, di))
           if ((list?.length ?? 0) > 0 && starting.length === 0) {
             di += 1
             continue
           }
-          const spanCover = starting.reduce((m, a) => Math.max(m, assignmentSpanDays(a)), 1)
+          const spanCover = starting.reduce((m, a) => Math.max(m, assignmentDaysLeftFrom(a, d)), 1)
           const colSpan = Math.min(spanCover, dates.length - di)
           const minW = dates.slice(di, di + colSpan).reduce((s, x) => {
             const w = dayColWidth(x)
@@ -1395,13 +1404,15 @@ const DutyRow = memo(function DutyRow({
                   const p = personById.get(a.personId)
                   const v = findVariant(duty, a.variantId)
                   const span = assignmentSpanDays(a)
+                  const cont = a.date < d
                   return (
                     <span
                       key={a.id}
                       className="group/chip flex h-7 min-w-0 flex-1 items-center gap-0.5 border-l-2 bg-surface-3 px-1 text-[11px] leading-none"
                       style={{ borderLeftColor: duty.color, borderRadius: 0 }}
                       title={
-                        (span > 1 ? `${span} дн. · ` : '') + dutyHoverTitle(duty, a.points, a.variantId)
+                        (span > 1 ? `${span} дн.${cont ? ' (продовження)' : ''} · ` : '') +
+                        dutyHoverTitle(duty, a.points, a.variantId)
                       }
                     >
                       <span className="truncate">

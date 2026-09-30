@@ -152,3 +152,35 @@ export function assignmentOverlapsRange(
 ): boolean {
   return a.date <= to && assignmentEndDate(a) >= from
 }
+
+/** Скільки днів span лишилось від day (включно) до кінця призначення. */
+export function assignmentDaysLeftFrom(
+  a: { date: ISODate; spanDays?: number | null },
+  day: ISODate,
+): number {
+  if (day < a.date) return 0
+  const end = assignmentEndDate(a)
+  if (day > end) return 0
+  return diffDays(end, day) + 1
+}
+
+/**
+ * Чи малювати блок на цьому дні сітки: справжній старт або
+ * перший непорожній видимий день, якщо призначення почалось раніше
+ * (стик місяців / тижнів, або дні приховані маскою Мирополю).
+ */
+export function isAssignmentDrawDay(
+  a: { date: ISODate; spanDays?: number | null },
+  day: ISODate,
+  dates: ISODate[],
+  di: number,
+  isSkipped?: (i: number) => boolean,
+): boolean {
+  if (a.date === day) return true
+  if (!assignmentCoversDate(a, day) || a.date >= day) return false
+  for (let i = 0; i < di; i++) {
+    if (isSkipped?.(i)) continue
+    if (assignmentCoversDate(a, dates[i])) return false
+  }
+  return true
+}
