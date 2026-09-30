@@ -1,13 +1,16 @@
 {
   "name": "exelscci",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "npm run dev --prefix server",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server:start": "npm run start --prefix server",
+    "server:seed": "npm run seed --prefix server"
   },
   "dependencies": {
     "@tanstack/react-table": "^8.21.3",

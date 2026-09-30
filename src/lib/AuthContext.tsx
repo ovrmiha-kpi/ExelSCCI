@@ -4,12 +4,14 @@ import {
   effectiveGroupOf,
   loadActiveGroup,
   loadSession,
-  loginWithPassword,
+  loginWithPasswordAsync,
   logout as clearSession,
+  restoreApiSession,
   refreshSessionFromAccounts,
   saveActiveGroup,
   type SessionUser,
 } from '../lib/auth'
+import { detectApiMode, isApiMode } from '../lib/api'
 
 type AuthContextValue = {
   session: SessionUser | null
@@ -17,8 +19,10 @@ type AuthContextValue = {
   activeGroup: string | null
   /** Фактична робоча група для фільтрів і prefs. */
   effectiveGroup: string | null
+  apiMode: boolean
+  authReady: boolean
   setActiveGroup: (group: string | null) => void
-  login: (login: string, password: string) => SessionUser | null
+  login: (login: string, password: string) => Promise<SessionUser | null>
   logout: () => void
   reloadSession: () => void
   canAccessGroup: (group: string) => boolean
@@ -27,11 +31,29 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<SessionUser | null>(() => loadSession())
-  const [activeGroup, setActiveGroupState] = useState<string | null>(() => {
-    const s = loadSession()
-    return s ? loadActiveGroup(s.id) : null
-  })
+  const [session, setSession] = useState<SessionUser | null>(null)
+  const [activeGroup, setActiveGroupState] = useState<string | null>(null)
+  const [apiMode, setApiMode] = useState(false)
+  const [authReady, setAuthReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const api = await detectApiMode()
+      if (cancelled) return
+      setApiMode(api)
+      const s = api ? await restoreApiSession() : loadSession()
+      if (cancelled) return
+      setSession(s)
+      if (s) {
+        setActiveGroupState(s.groupLock ?? loadActiveGroup(s.id))
+      }
+      setAuthReady(true)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!session) {
@@ -56,8 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session],
   )
 
-  const login = useCallback((loginName: string, password: string) => {
-    const user = loginWithPassword(loginName, password)
+  const login = useCallback(async (loginName: string, password: string) => {
+    const user = await loginWithPasswordAsync(loginName, password)
+    setApiMode(isApiMode())
     setSession(user)
     if (user) {
       const ag = user.groupLock ?? loadActiveGroup(user.id)
@@ -73,6 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const reloadSession = useCallback(() => {
+    if (isApiMode()) {
+      void restoreApiSession().then((s) => setSession(s))
+      return
+    }
     setSession((prev) => refreshSessionFromAccounts(prev))
   }, [])
 
@@ -83,13 +110,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       activeGroup,
       effectiveGroup,
+      apiMode,
+      authReady,
       setActiveGroup,
       login,
       logout,
       reloadSession,
       canAccessGroup: (group: string) => canAccessGroup(session, group),
     }),
-    [session, activeGroup, effectiveGroup, setActiveGroup, login, logout, reloadSession],
+    [session, activeGroup, effectiveGroup, apiMode, authReady, setActiveGroup, login, logout, reloadSession],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

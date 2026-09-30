@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Save, Trash2 } from 'lucide-react'
 import {
   ADMIN_ACCOUNT,
   ROLE_META,
   USER_ROLES,
-  deleteAccount,
-  loadAccounts,
-  registerAccount,
-  upsertAccount,
+  deleteAccountAsync,
+  loadAccountsAsync,
+  registerAccountAsync,
+  upsertAccountAsync,
   type Account,
   type UserRole,
 } from '../lib/auth'
@@ -34,21 +34,18 @@ function toDraft(acc: Account): Draft {
 }
 
 export function AccountsAdmin() {
-  const { session, reloadSession } = useAuth()
+  const { session, reloadSession, apiMode } = useAuth()
   const people = useStore((s) => s.people)
   const groups = useMemo(
     () => [...new Set(people.map((p) => p.group).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'uk')),
     [people],
   )
 
-  const [accounts, setAccounts] = useState<Account[]>(() => loadAccounts())
-  const [drafts, setDrafts] = useState<Record<string, Draft>>(() => {
-    const m: Record<string, Draft> = {}
-    for (const a of loadAccounts()) m[a.id] = toDraft(a)
-    return m
-  })
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({})
   const [msg, setMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
@@ -56,25 +53,36 @@ export function AccountsAdmin() {
   const [role, setRole] = useState<UserRole>('cadet')
   const [groupLock, setGroupLock] = useState('')
 
-  const refresh = () => {
-    const list = loadAccounts()
-    setAccounts(list)
-    setDrafts(() => {
-      const next: Record<string, Draft> = {}
-      for (const a of list) next[a.id] = toDraft(a)
-      return next
-    })
+  const refresh = async () => {
+    setLoading(true)
+    try {
+      const list = await loadAccountsAsync()
+      setAccounts(list)
+      setDrafts(() => {
+        const next: Record<string, Draft> = {}
+        for (const a of list) next[a.id] = toDraft(a)
+        return next
+      })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
   }
+
+  useEffect(() => {
+    void refresh()
+  }, [apiMode])
 
   const setDraft = (id: string, patch: Partial<Draft>) => {
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }))
   }
 
-  const create = (e: React.FormEvent) => {
+  const create = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setMsg(null)
-    const res = registerAccount(
+    const res = await registerAccountAsync(
       {
         login,
         password,
@@ -94,10 +102,10 @@ export function AccountsAdmin() {
     setRole('cadet')
     setGroupLock('')
     setMsg(`Створено: ${res.account.login}`)
-    refresh()
+    await refresh()
   }
 
-  const save = (acc: Account) => {
+  const save = async (acc: Account) => {
     const d = drafts[acc.id]
     if (!d) return
     setError(null)
@@ -110,27 +118,27 @@ export function AccountsAdmin() {
       groupLock: d.groupLock || null,
     }
     if (d.password.trim()) patch.password = d.password.trim()
-    const res = upsertAccount(patch)
+    const res = await upsertAccountAsync(patch)
     if (!res.ok) {
       setError(res.error)
       return
     }
     setMsg(`Збережено: ${res.account.login}`)
-    refresh()
+    await refresh()
     if (session?.id === acc.id) reloadSession()
   }
 
-  const remove = (acc: Account) => {
+  const remove = async (acc: Account) => {
     if (!session) return
     if (!confirm(`Видалити акаунт «${acc.login}»?`)) return
     setError(null)
-    const res = deleteAccount(acc.id, session.id)
+    const res = await deleteAccountAsync(acc.id, session.id)
     if (!res.ok) {
       setError(res.error)
       return
     }
     setMsg(`Видалено: ${acc.login}`)
-    refresh()
+    await refresh()
   }
 
   return (
@@ -139,11 +147,12 @@ export function AccountsAdmin() {
         <h2 className="text-sm font-semibold text-fg">Акаунти</h2>
         <p className="mt-0.5 text-xs text-fg-muted">
           Доступ: усі групи або лише одна. Журнал і налаштування привʼязані до групи.
+          {apiMode ? ' Збереження на сервері.' : ' Збереження в браузері.'}
         </p>
       </div>
 
       <form
-        onSubmit={create}
+        onSubmit={(e) => void create(e)}
         className="grid grid-cols-1 gap-3 rounded-md border border-border bg-surface-2/40 p-3 md:grid-cols-2 lg:grid-cols-3"
       >
         <Field label="Логін">
@@ -187,12 +196,9 @@ export function AccountsAdmin() {
         </div>
       </form>
 
-      {error && (
-        <p className="alert-danger px-3 py-2 text-sm">
-          {error}
-        </p>
-      )}
+      {error && <p className="alert-danger px-3 py-2 text-sm">{error}</p>}
       {msg && <p className="text-sm text-fg-muted">{msg}</p>}
+      {loading && <p className="text-sm text-fg-muted">Завантаження акаунтів…</p>}
 
       <div>
         <h3 className="mb-2 text-xs font-semibold tracking-wide text-fg-muted uppercase">Усі акаунти</h3>
@@ -265,7 +271,7 @@ export function AccountsAdmin() {
                   )}
                 </Field>
                 <div className="flex items-end gap-2">
-                  <button type="button" className="btn-primary flex-1" onClick={() => save(acc)}>
+                  <button type="button" className="btn-primary flex-1" onClick={() => void save(acc)}>
                     <Save size={14} /> Зберегти
                   </button>
                   {!isAdmin && session?.id !== acc.id && (
@@ -273,7 +279,7 @@ export function AccountsAdmin() {
                       type="button"
                       className="btn-ghost btn-sm text-tint-red"
                       title="Видалити"
-                      onClick={() => remove(acc)}
+                      onClick={() => void remove(acc)}
                     >
                       <Trash2 size={14} />
                     </button>

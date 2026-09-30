@@ -294,6 +294,59 @@ export async function saveSettings(settings: Settings, group?: string | null): P
   if (!group) await db.meta.put({ key: SETTINGS_KEY, value: settings })
 }
 
+/** Записати bundle групи з сервера в IndexedDB (локальний кеш) і повернути стан. */
+export async function applyServerBundle(
+  group: string,
+  bundle: {
+    people?: Person[]
+    dutyTypes?: DutyType[]
+    assignments?: Assignment[]
+    settings?: Partial<Settings> | null
+  },
+): Promise<{
+  people: Person[]
+  dutyTypes: DutyType[]
+  settings: Settings
+  stats: PersonStatRow[]
+}> {
+  const g = group.trim()
+  const people = (bundle.people ?? []).map((p) =>
+    withTags({ ...p, group: p.group || g, tags: p.tags ?? [], excludedDutyIds: p.excludedDutyIds ?? [] }),
+  )
+  const dutyTypes = (bundle.dutyTypes ?? []).map((d) => normalizeDuty({ ...d, group: d.group || g }))
+  const assignments = (bundle.assignments ?? []).map(normalizeAssignment)
+  const settings = normalizeSettings(bundle.settings ?? undefined)
+
+  const oldPeople = await db.people.where('group').equals(g).toArray()
+  const oldIds = oldPeople.map((p) => p.id)
+
+  await db.transaction('rw', db.people, db.dutyTypes, db.assignments, db.personStats, db.meta, async () => {
+    await db.people.where('group').equals(g).delete()
+    const allDuties = await db.dutyTypes.toArray()
+    const toDel = allDuties.filter((d) => (d.group || '') === g).map((d) => d.id)
+    if (toDel.length) await db.dutyTypes.bulkDelete(toDel)
+    for (const id of oldIds) {
+      await db.assignments.where('personId').equals(id).delete()
+      await db.personStats.delete(id)
+    }
+    if (people.length) await db.people.bulkPut(people)
+    if (dutyTypes.length) await db.dutyTypes.bulkPut(dutyTypes)
+    if (assignments.length) await db.assignments.bulkPut(assignments)
+    await saveSettings(settings, g)
+    const stats = rebuildStatsFrom(people, assignments)
+    if (stats.length) await db.personStats.bulkPut(stats)
+  })
+
+  const allPeople = await db.people.toArray()
+  const stats = await db.personStats.toArray()
+  return {
+    people: allPeople,
+    dutyTypes,
+    settings,
+    stats,
+  }
+}
+
 /** Переконатись, що для групи є settings і види нарядів. */
 export async function ensureGroupContext(group: string): Promise<void> {
   const g = group.trim()

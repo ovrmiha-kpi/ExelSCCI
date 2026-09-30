@@ -1,4 +1,16 @@
-/** Ролі доступу (локальні акаунти в браузері). */
+import {
+  apiDeleteAccount,
+  apiLogin,
+  apiListAccounts,
+  apiMe,
+  apiUpsertAccount,
+  detectApiMode,
+  isApiMode,
+  setToken,
+  type ApiUser,
+} from './api'
+
+/** Ролі доступу (локальні акаунти в браузері / сервер). */
 export type UserRole =
   | 'journalist'
   | 'cmd_section_1'
@@ -111,6 +123,17 @@ function toSession(acc: Account): SessionUser {
   }
 }
 
+function apiUserToSession(u: ApiUser): SessionUser {
+  const role: UserRole = u.role && u.role in ROLE_META ? (u.role as UserRole) : 'cadet'
+  return {
+    id: u.id,
+    login: u.login,
+    role,
+    displayName: u.displayName || ROLE_META[role].label,
+    groupLock: u.groupLock,
+  }
+}
+
 function ensureAdmin(list: Account[]): Account[] {
   const idx = list.findIndex((a) => a.login.toLowerCase() === ADMIN_ACCOUNT.login.toLowerCase())
   if (idx < 0) return [{ ...ADMIN_ACCOUNT }, ...list]
@@ -180,7 +203,42 @@ export function loginWithPassword(login: string, password: string): SessionUser 
   return session
 }
 
+/** Логін: спочатку API (якщо доступний), інакше localStorage. */
+export async function loginWithPasswordAsync(
+  login: string,
+  password: string,
+): Promise<SessionUser | null> {
+  await detectApiMode()
+  if (isApiMode()) {
+    try {
+      const { user } = await apiLogin(login, password)
+      const session = apiUserToSession(user)
+      saveSession(session)
+      return session
+    } catch {
+      return null
+    }
+  }
+  return loginWithPassword(login, password)
+}
+
+export async function restoreApiSession(): Promise<SessionUser | null> {
+  await detectApiMode()
+  if (!isApiMode()) return loadSession()
+  try {
+    const { user } = await apiMe()
+    const session = apiUserToSession(user)
+    saveSession(session)
+    return session
+  } catch {
+    setToken(null)
+    saveSession(null)
+    return null
+  }
+}
+
 export function logout(): void {
+  setToken(null)
   saveSession(null)
 }
 
@@ -278,6 +336,107 @@ export function deleteAccount(id: string, actorId: string): { ok: true } | { ok:
   }
   saveAccounts(accounts.filter((a) => a.id !== id))
   return { ok: true }
+}
+
+function accountFromApi(raw: {
+  id: string
+  login: string
+  role: string
+  displayName: string
+  groupLock: string | null
+}): Account {
+  const role: UserRole = raw.role && raw.role in ROLE_META ? (raw.role as UserRole) : 'cadet'
+  return {
+    id: raw.id,
+    login: raw.login,
+    password: '',
+    role,
+    displayName: raw.displayName || ROLE_META[role].label,
+    groupLock: raw.groupLock,
+  }
+}
+
+export async function loadAccountsAsync(): Promise<Account[]> {
+  await detectApiMode()
+  if (isApiMode()) {
+    const { accounts } = await apiListAccounts()
+    return accounts.map(accountFromApi)
+  }
+  return loadAccounts()
+}
+
+export async function registerAccountAsync(
+  input: RegisterInput,
+  opts?: { allowPrivilegedRoles?: boolean },
+): Promise<{ ok: true; user: SessionUser; account: Account } | { ok: false; error: string }> {
+  await detectApiMode()
+  if (isApiMode()) {
+    if (!opts?.allowPrivilegedRoles) {
+      return { ok: false, error: 'Немає прав на створення акаунтів' }
+    }
+    try {
+      const login = input.login.trim()
+      const password = input.password
+      if (login.length < 3) return { ok: false, error: 'Логін має містити щонайменше 3 символи' }
+      if (password.length < 4) return { ok: false, error: 'Пароль має містити щонайменше 4 символи' }
+      const role: UserRole = input.role && input.role in ROLE_META ? input.role : 'cadet'
+      const { account } = await apiUpsertAccount({
+        login,
+        password,
+        role,
+        displayName: (input.displayName ?? '').trim() || ROLE_META[role].label,
+        groupLock:
+          typeof input.groupLock === 'string' && input.groupLock.trim()
+            ? input.groupLock.trim()
+            : null,
+      })
+      const a = accountFromApi(account as Parameters<typeof accountFromApi>[0])
+      return { ok: true, user: toSession(a), account: a }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+  return registerAccount(input, opts)
+}
+
+export async function upsertAccountAsync(
+  patch: Partial<Account> & { id: string },
+): Promise<{ ok: true; account: Account } | { ok: false; error: string }> {
+  await detectApiMode()
+  if (isApiMode()) {
+    try {
+      const body: Record<string, unknown> = {
+        id: patch.id,
+        login: patch.login,
+        displayName: patch.displayName,
+        role: patch.role,
+        groupLock: patch.groupLock,
+      }
+      if (typeof patch.password === 'string' && patch.password) body.password = patch.password
+      const { account } = await apiUpsertAccount(body)
+      return { ok: true, account: accountFromApi(account as Parameters<typeof accountFromApi>[0]) }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+  return upsertAccount(patch)
+}
+
+export async function deleteAccountAsync(
+  id: string,
+  actorId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  await detectApiMode()
+  if (isApiMode()) {
+    if (id === actorId) return { ok: false, error: 'Не можна видалити власний акаунт' }
+    try {
+      await apiDeleteAccount(id)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  }
+  return deleteAccount(id, actorId)
 }
 
 export function refreshSessionFromAccounts(session: SessionUser | null): SessionUser | null {

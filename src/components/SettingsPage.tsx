@@ -16,7 +16,7 @@ import { useAuth } from '../lib/AuthContext'
 import { AccountsAdmin } from './AccountsAdmin'
 
 export function SettingsPage() {
-  const { session, effectiveGroup, setActiveGroup } = useAuth()
+  const { session, effectiveGroup, setActiveGroup, apiMode } = useAuth()
   const settings = useStore((s) => s.settings)
   const updateSettings = useStore((s) => s.updateSettings)
   const replaceAll = useStore((s) => s.replaceAll)
@@ -65,14 +65,29 @@ export function SettingsPage() {
     try {
       const text = await readFileAsText(file)
       const data = parseImportedData(JSON.parse(text))
+      const targetGroup = effectiveGroup
+      if (!targetGroup) {
+        setMsg('Спочатку оберіть робочу групу в канцелярії — імпорт піде в цю групу.')
+        return
+      }
+      const remapped = {
+        ...data,
+        people: data.people.map((p) => ({ ...p, group: targetGroup })),
+        dutyTypes: data.dutyTypes.map((d) => ({ ...d, group: targetGroup })),
+      }
       if (
         !confirm(
-          `Замінити поточні дані? У файлі: ${data.people.length} осіб, ${data.dutyTypes.length} видів нарядів, ${data.assignments.length} записів.`,
+          `Замінити дані групи «${targetGroup}»? У файлі: ${remapped.people.length} осіб, ${remapped.dutyTypes.length} видів нарядів, ${remapped.assignments.length} записів.` +
+            (apiMode ? ' Дані буде збережено на сервері.' : ''),
         )
       )
         return
-      replaceAll(data)
-      setMsg('Дані відновлено з файлу.')
+      replaceAll(remapped)
+      setMsg(
+        apiMode
+          ? `Дані групи «${targetGroup}» відновлено з файлу і синхронізовано з сервером.`
+          : `Дані групи «${targetGroup}» відновлено з файлу.`,
+      )
     } catch (e) {
       setMsg(`Помилка імпорту: ${(e as Error).message}`)
     }
@@ -501,7 +516,16 @@ export function SettingsPage() {
         <h2 className="text-sm font-semibold text-fg">Дані</h2>
         <p className="text-sm text-fg-muted">
           {counts.p} осіб · {counts.d} видів · {counts.a} записів
+          {apiMode
+            ? ' · серверне збереження по групі'
+            : ' · локально в браузері'}
         </p>
+        {apiMode && (
+          <p className="text-xs text-fg-muted">
+            Імпорт JSON з локальної копії: оберіть робочу групу → «Відновити з файлу» — дані потраплять у
+            серверну БД цієї групи. Інші пристрої після логіну з тією ж групою побачать те саме.
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <button

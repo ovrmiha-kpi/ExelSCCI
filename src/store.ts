@@ -13,6 +13,7 @@ import {
   bumpStatOnAdd,
   db,
   ensureGroupContext,
+  applyServerBundle,
   freshData,
   loadAll,
   loadCore,
@@ -20,7 +21,9 @@ import {
   rebuildStatsFrom,
   saveAll,
   saveSettings,
+  normalizeAssignment,
 } from './db'
+import { apiGetBundle, apiPutBundle, detectApiMode, isApiMode } from './lib/api'
 
 type PersonInput = Omit<Person, 'id' | 'createdAt'>
 type DutyTypeInput = Omit<DutyType, 'id' | 'order' | 'archived'>
@@ -71,10 +74,45 @@ export type Store = {
 } & Actions
 
 function persist(op: () => Promise<unknown>) {
-  op().catch((e: unknown) => {
-    console.error('[db]', e)
-    useStore.setState({ dbError: e instanceof Error ? e.message : String(e) })
+  op()
+    .then(() => scheduleServerSync())
+    .catch((e: unknown) => {
+      console.error('[db]', e)
+      useStore.setState({ dbError: e instanceof Error ? e.message : String(e) })
+    })
+}
+
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+
+async function pushGroupBundleToServer() {
+  if (!isApiMode()) return
+  const group = useStore.getState().workspaceGroup
+  if (!group) return
+  const state = useStore.getState()
+  const people = state.people.filter((p) => p.group === group)
+  const dutyTypes = state.dutyTypes.filter((d) => (d.group || '') === group)
+  const personIds = new Set(people.map((p) => p.id))
+  const allA = await db.assignments.toArray()
+  const assignments = allA
+    .filter((a) => personIds.has(a.personId))
+    .map(normalizeAssignment)
+  await apiPutBundle(group, {
+    people,
+    dutyTypes,
+    assignments,
+    settings: state.settings,
   })
+}
+
+function scheduleServerSync() {
+  if (!isApiMode()) return
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => {
+    pushGroupBundleToServer().catch((e: unknown) => {
+      console.error('[api]', e)
+      useStore.setState({ dbError: e instanceof Error ? e.message : String(e) })
+    })
+  }, 450)
 }
 
 function patchStat(stats: PersonStatRow[], row: PersonStatRow): PersonStatRow[] {
@@ -100,6 +138,7 @@ export const useStore = create<Store>()((set, get) => ({
 
   hydrate: async () => {
     try {
+      await detectApiMode()
       const data = await bootstrap()
       const theme = isThemeId(data.settings.theme)
         ? data.settings.theme
@@ -130,28 +169,90 @@ export const useStore = create<Store>()((set, get) => ({
 
   setWorkspaceGroup: async (group) => {
     const g = group && group.trim() ? group.trim() : null
-    if (g) await ensureGroupContext(g)
-    const core = await loadCore(g)
-    const theme = isThemeId(core.settings.theme)
-      ? core.settings.theme
-      : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
-    const settings = g
-      ? { ...core.settings, theme }
-      : normalizeSettings({
-          ...DEFAULT_SETTINGS,
-          theme,
-          myropilStays: core.settings.myropilStays ?? [],
-          squadRanges: core.settings.squadRanges ?? [],
+    try {
+      if (g && isApiMode()) {
+        const bundle = await apiGetBundle(g)
+        const isEmptyBundle =
+          (!bundle.people || bundle.people.length === 0) &&
+          (!bundle.dutyTypes || bundle.dutyTypes.length === 0) &&
+          (!bundle.assignments || bundle.assignments.length === 0) &&
+          (!bundle.settings || Object.keys(bundle.settings as object).length === 0)
+        if (isEmptyBundle) {
+          await ensureGroupContext(g)
+          const core = await loadCore(g)
+          await apiPutBundle(g, {
+            people: core.people.filter((p) => p.group === g),
+            dutyTypes: core.dutyTypes,
+            assignments: (await db.assignments.toArray())
+              .filter((a) => core.people.some((p) => p.id === a.personId && p.group === g))
+              .map(normalizeAssignment),
+            settings: core.settings,
+          })
+          const again = await apiGetBundle(g)
+          const applied = await applyServerBundle(g, {
+            people: again.people as Person[],
+            dutyTypes: again.dutyTypes as DutyType[],
+            assignments: again.assignments as Assignment[],
+            settings: again.settings as Partial<Settings> | null,
+          })
+          const theme = isThemeId(applied.settings.theme)
+            ? applied.settings.theme
+            : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
+          applyTheme(theme)
+          set({
+            workspaceGroup: g,
+            people: applied.people,
+            dutyTypes: applied.dutyTypes.map(normalizeDuty),
+            settings: { ...applied.settings, theme },
+            stats: applied.stats,
+          })
+          return
+        }
+        const applied = await applyServerBundle(g, {
+          people: bundle.people as Person[],
+          dutyTypes: bundle.dutyTypes as DutyType[],
+          assignments: bundle.assignments as Assignment[],
+          settings: bundle.settings as Partial<Settings> | null,
         })
-    applyTheme(theme)
-    set({
-      workspaceGroup: g,
-      dutyTypes: g ? core.dutyTypes.map(normalizeDuty) : [],
-      settings,
-      // Людей тримаємо всіх у сторі — фільтр по групі на сторінках через effectiveGroup.
-      people: core.people,
-      stats: core.stats,
-    })
+        const theme = isThemeId(applied.settings.theme)
+          ? applied.settings.theme
+          : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
+        applyTheme(theme)
+        set({
+          workspaceGroup: g,
+          people: applied.people,
+          dutyTypes: applied.dutyTypes.map(normalizeDuty),
+          settings: { ...applied.settings, theme },
+          stats: applied.stats,
+        })
+        return
+      }
+
+      if (g) await ensureGroupContext(g)
+      const core = await loadCore(g)
+      const theme = isThemeId(core.settings.theme)
+        ? core.settings.theme
+        : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
+      const settings = g
+        ? { ...core.settings, theme }
+        : normalizeSettings({
+            ...DEFAULT_SETTINGS,
+            theme,
+            myropilStays: core.settings.myropilStays ?? [],
+            squadRanges: core.settings.squadRanges ?? [],
+          })
+      applyTheme(theme)
+      set({
+        workspaceGroup: g,
+        dutyTypes: g ? core.dutyTypes.map(normalizeDuty) : [],
+        settings,
+        people: core.people,
+        stats: core.stats,
+      })
+    } catch (e) {
+      console.error('[workspace]', e)
+      set({ dbError: e instanceof Error ? e.message : String(e) })
+    }
   },
 
   addPerson: (p) => {

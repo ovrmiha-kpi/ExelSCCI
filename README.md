@@ -23,22 +23,41 @@
 - **Люди** — статуси, групи (взводи/відділення), стартові бали для перенесення зі старої таблиці,
   масове вставлення списку з Excel.
 - **Види нарядів** — своя назва, вартість у балах, кількість осіб за замовчуванням, колір, архів.
-- **Дані** — усе зберігається локально в браузері; резервна копія в JSON, відновлення, демо-дані.
+- **Дані** — локально в браузері **або** спільно на сервері (Oracle Cloud) по групі;
+  резервна копія в JSON, відновлення, демо-дані.
 
 ## Запуск
+
+Лише фронт (дані в IndexedDB браузера):
 
 ```bash
 npm install
 npm run dev
 ```
 
-Збірка: `npm run build` → папка `dist/` (статичний сайт, працює без сервера).
+Фронт + API (спільні дані по групі, Vite проксує `/api`):
+
+```bash
+npm install
+npm install --prefix server
+# термінал 1
+npm run dev:api
+# термінал 2
+npm run dev
+```
+
+Збірка: `npm run build` → папка `dist/`.
+
+Деплой на Oracle Cloud Always Free VM: див. [ORACLE_CLOUD.md](./ORACLE_CLOUD.md)
+(Docker Compose: API + статика, volume для даних груп).
 
 ## Деплой
 
 При пуші в `main` GitHub Actions збирає проєкт і публікує на GitHub Pages
 (у налаштуваннях репозиторію: Settings → Pages → Source: **GitHub Actions**).
 
+Для спільного збереження між пристроями потрібна VM з API (не Pages) — див. ORACLE_CLOUD.md.
+
 ## Стек
 
-React 19 · TypeScript · Vite · Tailwind CSS 4 · Zustand · TanStack Table · date-fns · SheetJS
+React 19 · TypeScript · Vite · Tailwind CSS 4 · Zustand · TanStack Table · date-fns · SheetJS · Express API

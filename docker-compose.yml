@@ -1,0 +1,23 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Same-origin API behind nginx / single container — leave empty
+        VITE_API_URL: ""
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      STATIC_DIR: /app/public
+      DATA_DIR: /data
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-ovrmiha}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-A80cvNys}
+    volumes:
+      - exelscci-data:/data
+    restart: unless-stopped
+
+volumes:
+  exelscci-data:

@@ -68,7 +68,7 @@ function Spinner() {
 }
 
 export default function App() {
-  const { session, logout, effectiveGroup } = useAuth()
+  const { session, logout, effectiveGroup, authReady } = useAuth()
   const allowedTabs = useMemo(
     () => (session ? tabsForRole(session.role) : (['table'] as AppTab[])),
     [session],
@@ -86,13 +86,14 @@ export default function App() {
   const cadet = isCadet(session?.role)
 
   useEffect(() => {
+    if (!authReady) return
     void hydrate()
-  }, [hydrate])
+  }, [authReady, hydrate])
 
   useEffect(() => {
-    if (!hydrated || !session) return
+    if (!authReady || !hydrated || !session) return
     void setWorkspaceGroup(effectiveGroup)
-  }, [hydrated, session, effectiveGroup, setWorkspaceGroup])
+  }, [authReady, hydrated, session, effectiveGroup, setWorkspaceGroup])
 
   useEffect(() => {
     if (!session) return
@@ -135,6 +136,14 @@ export default function App() {
 
   const ThemeIcon = THEME_ICON[theme] ?? Moon
   const visibleTabs = TAB_META.filter((t) => allowedTabs.includes(t.id))
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-full flex-col items-center justify-center">
+        <Spinner />
+      </div>
+    )
+  }
 
   if (!session) {
     return (
