@@ -1,5 +1,8 @@
 name: Deploy to GitHub Pages
 
+# Pages = лише редірект на робочий сервер (дані на бекенді).
+# Сам застосунок: http://79.76.110.80/
+
 on:
   push:
     branches: [main]
@@ -19,22 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # Pages (HTTPS) → Oracle API. Set repo Variable VITE_API_URL (no trailing slash).
-      # Prefer https://… — http://IP:8787 is blocked by browsers as mixed content from Pages.
-      - name: Build
-        env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
-        run: |
-          echo "VITE_API_URL set: $([ -n "$VITE_API_URL" ] && echo yes || echo no)"
-          npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: pages-redirect
 
   deploy:
     needs: build
