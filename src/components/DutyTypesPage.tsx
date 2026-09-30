@@ -14,7 +14,7 @@ import {
 } from '../types'
 import { sortedDutyTypes } from '../lib/stats'
 import { DUTY_COLORS, newVariant } from '../lib/defaults'
-import { ColorPalette, DutyBadge, Field, Modal, Segmented, Toggle } from './ui'
+import { ColorPalette, DutyBadge, Field, Modal, Segmented } from './ui'
 
 const TAG_MODE_CLASS: Record<TagFilterMode, string> = {
   off: 'border-border bg-surface-2 text-fg-faint',

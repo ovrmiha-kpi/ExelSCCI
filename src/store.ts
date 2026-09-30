@@ -24,7 +24,7 @@ import {
 
 type PersonInput = Omit<Person, 'id' | 'createdAt'>
 type DutyTypeInput = Omit<DutyType, 'id' | 'order' | 'archived'>
-type AssignmentInput = Omit<Assignment, 'id' | 'createdAt'>
+type AssignmentInput = Omit<Assignment, 'id' | 'createdAt' | 'spanDays'> & { spanDays?: number }
 
 interface Actions {
   hydrated: boolean
@@ -513,6 +513,7 @@ export const useStore = create<Store>()((set, get) => ({
         points: duty.points,
         note: '',
         source: 'manual',
+        spanDays: 1,
         createdAt: now,
       })
       data.assignments.push(mk(dn, pick(0)), mk(dn, pick(1)), mk(pgd, pick(2)))

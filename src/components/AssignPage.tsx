@@ -122,15 +122,6 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
   const [variantSlots, setVariantSlotsRaw] = useState<Record<string, number>>(
     () => prefs.assignVariantSlots ?? {},
   )
-  const setVariantSlots = (
-    updater: Record<string, number> | ((s: Record<string, number>) => Record<string, number>),
-  ) => {
-    setVariantSlotsRaw((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveUiPrefs({ assignVariantSlots: next }, effectiveGroup)
-      return next
-    })
-  }
   const [enabled, setEnabledRaw] = useState<Record<string, boolean>>(() => prefs.assignEnabled ?? {})
   const setEnabled = (
     updater: Record<string, boolean> | ((s: Record<string, boolean>) => Record<string, boolean>),
@@ -146,8 +137,6 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
   const variantSlotKey = (dutyId: string, variantId: string) => `${dutyId}:${variantId}`
   const variantSlotsFor = (dutyId: string, variantId: string) =>
     variantSlots[variantSlotKey(dutyId, variantId)] ?? 1
-  const setVariantSlot = (dutyId: string, variantId: string, n: number) =>
-    setVariantSlots((s) => ({ ...s, [variantSlotKey(dutyId, variantId)]: Math.max(0, n) }))
   const dutySlotTotal = (d: (typeof duties)[number]) => {
     const variants = d.variants ?? []
     if (variants.length > 0) {
