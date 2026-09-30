@@ -25,11 +25,10 @@ jobs:
           cache: npm
       - run: npm ci
       # Pages (HTTPS) → Oracle API. Set repo Variable VITE_API_URL (no trailing slash).
-      # Prefer https://… (http://IP:8787 is blocked by browsers as mixed content).
+      # Prefer https://… — http://IP:8787 is blocked by browsers as mixed content from Pages.
       - name: Build
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_USE_API: ${{ vars.VITE_API_URL != '' && '1' || '' }}
         run: |
           echo "VITE_API_URL set: $([ -n "$VITE_API_URL" ] && echo yes || echo no)"
           npm run build
