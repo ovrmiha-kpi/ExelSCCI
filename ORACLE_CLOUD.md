@@ -1,121 +1,125 @@
-# ExelSCCI на Oracle Cloud (Always Free VM)
+# ExelSCCI: GitHub Pages (фронт) + Oracle VM (API)
 
-Спільне збереження даних **по групі** (люди, види нарядів, журнал, налаштування, акаунти)
-на одній VM. Фронт і API в одному Docker-контейнері.
+Продакшен-схема:
 
-## Архітектура
+| Що | Де |
+|----|-----|
+| UI | GitHub Pages `https://ovrmiha-kpi.github.io/ExelSCCI/` |
+| API | Oracle Always Free VM, порт **8787** (краще HTTPS через Caddy на 443) |
+| Дані | на VM, напр. `/home/opc/exelscci-data/` |
 
-- **Node (Express)** — REST `/api/...`, JWT-логін, bcrypt-паролі
-- **Файлове сховище** — `DATA_DIR/groups/<group>.json` + `accounts.json` (простіше за SQLite на Always Free)
-- **Статика** — зібраний Vite `dist/` роздається тим самим процесом (`STATIC_DIR`)
+Статичний python на `:80` на VM **не** є основним фронтом.
 
-Клієнт при доступному `/api/health` працює в **API mode**: завантаження/збереження bundle групи,
-локальний IndexedDB лишається кешем.
+## Критично: HTTPS
 
-## 1. VM на Oracle Cloud
+Pages завжди **HTTPS**. Браузер **блокує** `fetch` на `http://IP:8787` (mixed content).
+Тому `VITE_API_URL` має бути **`https://…`**, не `http://…:8787`.
 
-1. Compute → Create instance (Always Free: Ampere A1 або AMD).
-2. Image: **Ubuntu 22.04** (або новіша).
-3. Networking: відкрити **ingress** TCP **80**, **443**, за потреби **8787** для перевірки.
-4. Підключитись: `ssh ubuntu@<PUBLIC_IP>` (ключ з консолі).
+Рекомендовано: Caddy на VM (80/443) → `reverse_proxy 127.0.0.1:8787`, а в GitHub Variable:
 
-## 2. Встановити Docker
+`VITE_API_URL=https://exelscci.<IP-з-дефісами>.sslip.io`
 
-```bash
-sudo apt update
-sudo apt install -y docker.io docker-compose-v2 git
-sudo usermod -aG docker "$USER"
-# перелогінитись, щоб група docker застосувалась
-```
+приклад IP `1.2.3.4` → `https://exelscci.1-2-3-4.sslip.io`
 
-## 3. Деплой з репозиторію
+## 1. Oracle Console — Public IP + Ingress
 
-```bash
-git clone <ваш-репо> exelscci
-cd exelscci
-cp .env.example .env   # якщо є; або експорт змінних нижче
-# Обовʼязково змініть секрети:
-export JWT_SECRET="$(openssl rand -hex 32)"
-export ADMIN_PASSWORD="ваш-надійний-пароль"
+Зараз без Public IP API з інтернету недоступний (`publicIp=None`).
 
-docker compose up -d --build
-```
+### Public IP
 
-Перевірка: `curl http://127.0.0.1:8787/api/health` → `{"ok":true,...}`
+1. **Compute → Instances** → ваш інстанс.
+2. **Resources → Attached VNICs** → VNIC.
+3. **IPv4 Addresses** → **Edit** / **Create public IPv4 address** (Ephemeral або Reserved).
+4. Скопіюйте **Public IP**.
 
-Відкрити в браузері: `http://<PUBLIC_IP>:8787/`
+Альтернатива: **Networking → IP Management → Reserved Public IPs** → Create → Assign to private IP інстанса.
 
-Логін за замовчуванням: `ADMIN_LOGIN` / `ADMIN_PASSWORD` (див. `docker-compose.yml`).
+### Security List / NSG
 
-## 4. HTTPS (рекомендовано)
+**Networking → VCN → Security Lists** (або NSG інстанса) → Ingress:
 
-Варіант A — **Caddy** як reverse proxy на 80/443:
+| Source | Protocol | Port |
+|--------|----------|------|
+| `0.0.0.0/0` | TCP | **8787** (тимчасово / перевірка) |
+| `0.0.0.0/0` | TCP | **80** |
+| `0.0.0.0/0` | TCP | **443** |
+| ваш IP / `0.0.0.0/0` | TCP | **22** (SSH) |
+
+На самій VM (`firewalld`) порт 8787 уже відкритий — цього мало без Security List.
+
+Перевірка з вашого ПК:
 
 ```bash
-sudo apt install -y caddy
+curl http://<PUBLIC_IP>:8787/api/health
+# → {"ok":true,"service":"exelscci"}
 ```
 
-`/etc/caddy/Caddyfile`:
+## 2. HTTPS перед Pages (Caddy + sslip.io)
 
-```
-your.domain.com {
+На VM (після SSH `opc@<PUBLIC_IP>` або `ubuntu@…`):
+
+```bash
+# Oracle Linux / opc — приклад для dnf; на Ubuntu: apt install caddy
+sudo dnf install -y caddy   # або https://caddyserver.com/docs/install
+
+IP=$(curl -4 -s ifconfig.me)
+HOST="exelscci.${IP//./-}.sslip.io"
+echo "API host: https://$HOST"
+
+sudo tee /etc/caddy/Caddyfile >/dev/null <<EOF
+$HOST {
   reverse_proxy 127.0.0.1:8787
 }
-```
+EOF
 
-```bash
+sudo systemctl enable --now caddy
 sudo systemctl reload caddy
+curl -sS "https://$HOST/api/health"
 ```
 
-Після HTTPS можна закрити порт 8787 у Security List і лишити лише 80/443.
+Відкрийте в OCI Ingress **80** і **443** (Let's Encrypt).
 
-Варіант B — nginx + certbot (аналогічно: proxy_pass на `127.0.0.1:8787`).
+## 3. Фронт на Pages → адреса API
 
-## 5. Змінні середовища
+У репозиторії GitHub:
 
-| Змінна | Призначення |
-|--------|-------------|
-| `JWT_SECRET` | Підпис токенів (обовʼязково змінити) |
-| `ADMIN_LOGIN` / `ADMIN_PASSWORD` | Перший журналіст (якщо ще немає в `accounts.json`) |
-| `DATA_DIR` | Каталог даних (у Docker: `/data`, volume `exelscci-data`) |
-| `STATIC_DIR` | Каталог фронту (у образі: `/app/public`) |
-| `VITE_API_URL` | При збірці фронту: порожньо = same-origin `/api` |
+**Settings → Secrets and variables → Actions → Variables**
 
-## 6. Міграція з локального браузера
+- Name: `VITE_API_URL`
+- Value: `https://exelscci.<IP-з-дефісами>.sslip.io` (без `/` в кінці)
 
-1. На старій (локальній / GitHub Pages) версії: **Налаштування → Завантажити резервну копію**.
-2. На сервері: увійти → обрати **робочу групу** в канцелярії.
-3. **Відновити з файлу** — люди/наряди/журнал/settings підуть у серверний bundle цієї групи.
-4. З іншого браузера/ПК: логін + та сама група → ті самі дані.
+Workflow `.github/workflows/deploy.yml` підставляє це в збірку.
+Після зміни Variable: **Actions → Deploy to GitHub Pages → Run workflow** (або push у `main`).
 
-## 7. Локальна розробка з API
+Без `VITE_API_URL` Pages шукає `/api` на `github.io` і лишається в IndexedDB.
+
+## 4. Перевірка end-to-end
+
+1. `curl https://<API_HOST>/api/health`
+2. Відкрити https://ovrmiha-kpi.github.io/ExelSCCI/
+3. Увійти `ovrmiha` / пароль адміна
+4. Обрати групу → зміни мають писатись на VM (`/home/opc/exelscci-data/`)
+
+У логіні має з’явитись мітка **«сервер»** (apiMode).
+
+## 5. Локальна розробка
 
 ```bash
-# термінал 1
 npm install --prefix server
-npm run dev:api
-
-# термінал 2
-npm install
-npm run dev
+npm run dev:api   # :8787
+npm run dev       # Vite proxy /api → 8787
 ```
 
-Vite проксує `/api` → `http://127.0.0.1:8787`. Фронт сам виявить API через `/api/health`.
-
-Примусово: створити `.env.local` з `VITE_USE_API=1`.
-
-## 8. Бекапи
-
-Дані — volume `exelscci-data` (або файли в `/data` на хості).
+## 6. Бекапи даних на VM
 
 ```bash
-docker compose exec app ls /data/groups
-# або скопіювати volume:
-docker run --rm -v exelscci_exelscci-data:/data -v "$PWD":/backup alpine \
-  tar czf /backup/exelscci-data.tgz -C /data .
+tar czf exelscci-data-$(date +%F).tgz -C /home/opc/exelscci-data .
 ```
 
-## Важливо
+## Автооновлення коду з GitHub на VM
 
-Поки сайт лише на **GitHub Pages** без цієї VM — спільного серверного сховища немає.
-Після деплою на Oracle Cloud джерело істини — API на VM, не IndexedDB браузера.
+Якщо з VM немає HTTPS egress до GitHub — `git pull` ламається; API можна оновлювати окремо (scp архіву / bastion). Поки `exelscci-api.service` крутиться — для даних це ок.
+
+## Docker (опційно, all-in-one на VM)
+
+Якщо колись захочете роздавати і фронт з VM — див. `docker-compose.yml`. Для поточної схеми Pages + API достатньо systemd на :8787 + Caddy на :443.
