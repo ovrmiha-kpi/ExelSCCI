@@ -3,7 +3,7 @@ import { AlertTriangle, Check, GripVertical, RefreshCw, Trash2, Wand2 } from 'lu
 import clsx from 'clsx'
 import { useStore } from '../store'
 import { activeDutyTypes } from '../lib/stats'
-import { effectiveSlots } from '../lib/defaults'
+import { effectiveSlots, leafVariants } from '../lib/defaults'
 import { addDaysISO, dateRange, formatHuman, todayISO } from '../lib/dates'
 import { useAssignmentsRange } from '../lib/queries'
 import {
@@ -138,7 +138,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
   const variantSlotsFor = (dutyId: string, variantId: string) =>
     variantSlots[variantSlotKey(dutyId, variantId)] ?? 1
   const dutySlotTotal = (d: (typeof duties)[number]) => {
-    const variants = d.variants ?? []
+    const variants = leafVariants(d.variants)
     if (variants.length > 0) {
       return variants.reduce((sum, v) => sum + (Number(variantSlotsFor(d.id, v.id)) || 0), 0)
     }
@@ -304,7 +304,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
         .filter((d) => isOn(d.id))
         .map((d) => {
           const rules = rulesForDuty(d.id, d.excludeTags ?? [], d.requireTags ?? [])
-          const variants = d.variants ?? []
+          const variants = leafVariants(d.variants)
           if (variants.length > 0) {
             const vs: Record<string, number> = {}
             for (const v of variants) vs[v.id] = Math.max(0, Number(variantSlotsFor(d.id, v.id)) || 0)
@@ -511,8 +511,8 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                         min={0}
                         className="input w-14 shrink-0 py-0.5 text-center text-xs"
                         value={slotsFor(d.id, effectiveSlots(d))}
-                        disabled={!on || (d.variants?.length ?? 0) > 0}
-                        title={(d.variants?.length ?? 0) > 0 ? 'Місця задаються підпунктами' : 'Кількість місць'}
+                        disabled={!on || (leafVariants(d.variants).length > 0)}
+                        title={(leafVariants(d.variants).length > 0) ? 'Місця задаються підпунктами' : 'Кількість місць'}
                         onChange={(e) => setSlots((s) => ({ ...s, [d.id]: Number(e.target.value) }))}
                       />
                     </div>

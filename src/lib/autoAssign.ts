@@ -9,7 +9,7 @@ import type {
   PersonTag,
 } from '../types'
 import { normalizeJournalId } from '../types'
-import { dutyBasePoints } from './defaults'
+import { dutyBasePoints, findVariant, leafVariants } from './defaults'
 import { addDaysISO, diffDays, dutyPointsForDate, todayISO } from './dates'
 import { isDutyHistoryAssignment, isRatingAssignment } from './stats'
 import { personInMyropilOn } from './myropil'
@@ -424,7 +424,7 @@ export function planAssignments(data: AppData, req: PlanRequest, stats?: PersonS
   for (const r of req.duties) {
     const duty = dutyById.get(r.dutyTypeId)
     if (!duty) continue
-    const variants = duty.variants ?? []
+    const variants = leafVariants(duty.variants)
     if (variants.length > 0) {
       for (const v of variants) {
         const n = Math.max(0, Math.floor(Number(r.variantSlots?.[v.id] ?? 1) || 0))
@@ -531,9 +531,7 @@ export function planAssignments(data: AppData, req: PlanRequest, stats?: PersonS
 
       const chosen = pool[0]
       const rest = restBefore(chosen, date)
-      const vName = variantId
-        ? (duty.variants ?? []).find((v) => v.id === variantId)?.name
-        : null
+      const vName = variantId ? findVariant(duty, variantId)?.name : null
       const parts: string[] = duty.isMainDuty
         ? [`${chosen.countByDuty[duty.id] ?? 0}× ${duty.short || duty.name}`]
         : [`${chosen.points} б.`, `${chosen.totalCount} призн.`, `№${chosen.groupNo}`]

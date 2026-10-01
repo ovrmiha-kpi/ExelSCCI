@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import type { DutyType, PersonStatus, PersonTag } from '../types'
-import { PERSON_STATUS_LABEL, PERSON_TAG_META } from '../types'
+import { PERSON_STATUS_LABEL, PERSON_STATUS_SHORT, PERSON_TAG_META } from '../types'
 import { DUTY_COLORS } from '../lib/defaults'
 
 export function Modal({
@@ -31,18 +31,27 @@ export function Modal({
   if (!open) return null
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-[6vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/60 p-0 backdrop-blur-[2px] sm:items-start sm:p-4 sm:pt-[6vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className={clsx('card w-full text-fg shadow-2xl shadow-black/40', wide ? 'max-w-4xl' : 'max-w-lg')}>
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-base font-semibold text-fg">{title}</h2>
-          <button className="btn-ghost btn-sm -mr-1" onClick={onClose} aria-label="Закрити">
+      <div
+        className={clsx(
+          'card flex max-h-[92dvh] w-full flex-col rounded-b-none text-fg shadow-2xl shadow-black/40 sm:max-h-none sm:rounded-lg',
+          wide ? 'sm:max-w-4xl' : 'sm:max-w-lg',
+        )}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+          <h2 className="pr-2 text-base font-semibold text-fg">{title}</h2>
+          <button className="btn-ghost btn-sm -mr-1 shrink-0" onClick={onClose} aria-label="Закрити">
             <X size={16} />
           </button>
         </div>
-        <div className="px-4 py-3">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-border px-4 py-3">{footer}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">{children}</div>
+        {footer && (
+          <div className="safe-pb flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-4 py-3">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -90,14 +99,23 @@ export function DutyBadge({
 }
 
 const STATUS_STYLE: Record<PersonStatus, string> = {
+  roster: 'bg-tint-slate/20 text-tint-slate',
   active: 'bg-tint-emerald/15 text-tint-emerald',
-  sick: 'bg-tint-amber/15 text-tint-amber',
+  bedrest: 'bg-tint-amber/15 text-tint-amber',
   leave: 'bg-tint-sky/15 text-tint-sky',
+  trip: 'bg-tint-orange/15 text-tint-orange',
+  furlough: 'bg-tint-fuchsia/15 text-tint-fuchsia',
+  hospital: 'bg-tint-red/15 text-tint-red',
   excluded: 'bg-tint-slate/20 text-tint-slate',
+  sick: 'bg-tint-amber/15 text-tint-amber',
 }
 
-export function StatusBadge({ status }: { status: PersonStatus }) {
-  return <span className={clsx('badge', STATUS_STYLE[status])}>{PERSON_STATUS_LABEL[status]}</span>
+export function StatusBadge({ status, short }: { status: PersonStatus; short?: boolean }) {
+  return (
+    <span className={clsx('badge', STATUS_STYLE[status])} title={PERSON_STATUS_LABEL[status]}>
+      {short ? PERSON_STATUS_SHORT[status] : PERSON_STATUS_LABEL[status]}
+    </span>
+  )
 }
 
 export function ColorPalette({

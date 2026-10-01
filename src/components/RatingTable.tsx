@@ -216,7 +216,7 @@ export function RatingTable({ readOnly = false }: { readOnly?: boolean }) {
         header: 'Статус',
         size: 100,
         minSize: 70,
-        cell: (ctx) => <StatusBadge status={ctx.getValue()} />,
+        cell: (ctx) => <StatusBadge status={ctx.getValue()} short />,
       }),
       ...duties.map((d) =>
         col.accessor((r) => (mode === 'count' ? (r.countByDuty[d.id] ?? 0) : (r.pointsByDuty[d.id] ?? 0)), {

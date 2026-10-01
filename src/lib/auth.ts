@@ -5,7 +5,6 @@ import {
   apiMe,
   apiUpsertAccount,
   detectApiMode,
-  isApiMode,
   setToken,
   type ApiUser,
 } from './api'
@@ -203,28 +202,30 @@ export function loginWithPassword(login: string, password: string): SessionUser 
   return session
 }
 
-/** Логін: спочатку API (якщо доступний), інакше localStorage. */
+/** Логін лише через бекенд API — без localStorage-акаунтів. */
 export async function loginWithPasswordAsync(
   login: string,
   password: string,
 ): Promise<SessionUser | null> {
-  await detectApiMode()
-  if (isApiMode()) {
-    try {
-      const { user } = await apiLogin(login, password)
-      const session = apiUserToSession(user)
-      saveSession(session)
-      return session
-    } catch {
-      return null
-    }
+  const ok = await detectApiMode()
+  if (!ok) return null
+  try {
+    const { user } = await apiLogin(login, password)
+    const session = apiUserToSession(user)
+    saveSession(session)
+    return session
+  } catch {
+    return null
   }
-  return loginWithPassword(login, password)
 }
 
 export async function restoreApiSession(): Promise<SessionUser | null> {
-  await detectApiMode()
-  if (!isApiMode()) return loadSession()
+  const ok = await detectApiMode()
+  if (!ok) {
+    setToken(null)
+    saveSession(null)
+    return null
+  }
   try {
     const { user } = await apiMe()
     const session = apiUserToSession(user)
@@ -357,86 +358,78 @@ function accountFromApi(raw: {
 }
 
 export async function loadAccountsAsync(): Promise<Account[]> {
-  await detectApiMode()
-  if (isApiMode()) {
-    const { accounts } = await apiListAccounts()
-    return accounts.map(accountFromApi)
-  }
-  return loadAccounts()
+  const ok = await detectApiMode()
+  if (!ok) throw new Error('Сервер недоступний')
+  const { accounts } = await apiListAccounts()
+  return accounts.map(accountFromApi)
 }
 
 export async function registerAccountAsync(
   input: RegisterInput,
   opts?: { allowPrivilegedRoles?: boolean },
 ): Promise<{ ok: true; user: SessionUser; account: Account } | { ok: false; error: string }> {
-  await detectApiMode()
-  if (isApiMode()) {
-    if (!opts?.allowPrivilegedRoles) {
-      return { ok: false, error: 'Немає прав на створення акаунтів' }
-    }
-    try {
-      const login = input.login.trim()
-      const password = input.password
-      if (login.length < 3) return { ok: false, error: 'Логін має містити щонайменше 3 символи' }
-      if (password.length < 4) return { ok: false, error: 'Пароль має містити щонайменше 4 символи' }
-      const role: UserRole = input.role && input.role in ROLE_META ? input.role : 'cadet'
-      const { account } = await apiUpsertAccount({
-        login,
-        password,
-        role,
-        displayName: (input.displayName ?? '').trim() || ROLE_META[role].label,
-        groupLock:
-          typeof input.groupLock === 'string' && input.groupLock.trim()
-            ? input.groupLock.trim()
-            : null,
-      })
-      const a = accountFromApi(account as Parameters<typeof accountFromApi>[0])
-      return { ok: true, user: toSession(a), account: a }
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
-    }
+  const ok = await detectApiMode()
+  if (!ok) return { ok: false, error: 'Сервер недоступний' }
+  if (!opts?.allowPrivilegedRoles) {
+    return { ok: false, error: 'Немає прав на створення акаунтів' }
   }
-  return registerAccount(input, opts)
+  try {
+    const login = input.login.trim()
+    const password = input.password
+    if (login.length < 3) return { ok: false, error: 'Логін має містити щонайменше 3 символи' }
+    if (password.length < 4) return { ok: false, error: 'Пароль має містити щонайменше 4 символи' }
+    const role: UserRole = input.role && input.role in ROLE_META ? input.role : 'cadet'
+    const { account } = await apiUpsertAccount({
+      login,
+      password,
+      role,
+      displayName: (input.displayName ?? '').trim() || ROLE_META[role].label,
+      groupLock:
+        typeof input.groupLock === 'string' && input.groupLock.trim()
+          ? input.groupLock.trim()
+          : null,
+    })
+    const a = accountFromApi(account as Parameters<typeof accountFromApi>[0])
+    return { ok: true, user: toSession(a), account: a }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 export async function upsertAccountAsync(
   patch: Partial<Account> & { id: string },
 ): Promise<{ ok: true; account: Account } | { ok: false; error: string }> {
-  await detectApiMode()
-  if (isApiMode()) {
-    try {
-      const body: Record<string, unknown> = {
-        id: patch.id,
-        login: patch.login,
-        displayName: patch.displayName,
-        role: patch.role,
-        groupLock: patch.groupLock,
-      }
-      if (typeof patch.password === 'string' && patch.password) body.password = patch.password
-      const { account } = await apiUpsertAccount(body)
-      return { ok: true, account: accountFromApi(account as Parameters<typeof accountFromApi>[0]) }
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  const ok = await detectApiMode()
+  if (!ok) return { ok: false, error: 'Сервер недоступний' }
+  try {
+    const body: Record<string, unknown> = {
+      id: patch.id,
+      login: patch.login,
+      displayName: patch.displayName,
+      role: patch.role,
+      groupLock: patch.groupLock,
     }
+    if (typeof patch.password === 'string' && patch.password) body.password = patch.password
+    const { account } = await apiUpsertAccount(body)
+    return { ok: true, account: accountFromApi(account as Parameters<typeof accountFromApi>[0]) }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
-  return upsertAccount(patch)
 }
 
 export async function deleteAccountAsync(
   id: string,
   actorId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  await detectApiMode()
-  if (isApiMode()) {
-    if (id === actorId) return { ok: false, error: 'Не можна видалити власний акаунт' }
-    try {
-      await apiDeleteAccount(id)
-      return { ok: true }
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
-    }
+  const ok = await detectApiMode()
+  if (!ok) return { ok: false, error: 'Сервер недоступний' }
+  if (id === actorId) return { ok: false, error: 'Не можна видалити власний акаунт' }
+  try {
+    await apiDeleteAccount(id)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
-  return deleteAccount(id, actorId)
 }
 
 export function refreshSessionFromAccounts(session: SessionUser | null): SessionUser | null {

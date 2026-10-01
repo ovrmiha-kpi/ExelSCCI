@@ -27,18 +27,26 @@ export function apiBase(): string {
   return raw.replace(/\/$/, '')
 }
 
+/** Завжди потрібен бекенд — локальний режим збереження заборонений. */
+export function requiresApiServer(): boolean {
+  return true
+}
+
+export function assertApiMode(): void {
+  if (!isApiMode()) {
+    throw new Error('Сервер недоступний — локальне збереження вимкнено')
+  }
+}
+
 export async function detectApiMode(): Promise<boolean> {
-  if (import.meta.env.VITE_USE_API === '1' || import.meta.env.VITE_USE_API === 'true') {
-    apiAvailable = true
-    return true
-  }
-  if (apiBase()) {
+  // Always probe health — never assume API is up, never fall back to client-only mode.
+  for (let i = 0; i < 3; i++) {
     apiAvailable = await apiHealth()
-    return apiAvailable
+    if (apiAvailable) return true
+    await new Promise((r) => setTimeout(r, 400 * (i + 1)))
   }
-  // Dev proxy / same-origin nginx
-  apiAvailable = await apiHealth()
-  return apiAvailable
+  apiAvailable = false
+  return false
 }
 
 export function isApiMode(): boolean {
@@ -93,8 +101,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export async function apiHealth(): Promise<boolean> {
   try {
     const ctrl = new AbortController()
-    const t = window.setTimeout(() => ctrl.abort(), 1500)
-    const r = await fetch(url('/api/health'), { signal: ctrl.signal })
+    const t = window.setTimeout(() => ctrl.abort(), 4000)
+    const r = await fetch(url('/api/health'), { signal: ctrl.signal, cache: 'no-store' })
     window.clearTimeout(t)
     return r.ok
   } catch {

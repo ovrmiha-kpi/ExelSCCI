@@ -3,7 +3,7 @@ import clsx from 'clsx'
 import { useStore } from '../store'
 import { activeDutyTypes, statsFromRows } from '../lib/stats'
 import { dutyPointsForDate, isWeekend, todayISO } from '../lib/dates'
-import { dutyBasePoints } from '../lib/defaults'
+import { dutyBasePoints, leafVariants } from '../lib/defaults'
 import { uid } from '../lib/id'
 import { useAssignmentsOnDate } from '../lib/queries'
 import { Field, Modal, PersonTags, StatusBadge } from './ui'
@@ -47,12 +47,12 @@ function ManualAssignForm({
   const initialDate = presetDate ?? todayISO()
   const [date, setDate] = useState(initialDate)
   const [dutyId, setDutyId] = useState(initialDuty?.id ?? '')
-  const [variantId, setVariantId] = useState<string>(initialDuty?.variants?.[0]?.id ?? '')
+  const [variantId, setVariantId] = useState<string>(leafVariants(initialDuty?.variants)[0]?.id ?? '')
   const [points, setPoints] = useState(
     String(
       initialDuty
         ? dutyPointsForDate(
-            dutyBasePoints(initialDuty, initialDuty.variants?.[0]?.id ?? null),
+            dutyBasePoints(initialDuty, leafVariants(initialDuty.variants)[0]?.id ?? null),
             initialDate,
             settings.weekendMultiplier,
           )
@@ -64,7 +64,7 @@ function ManualAssignForm({
   const [search, setSearch] = useState('')
 
   const currentDuty = duties.find((d) => d.id === dutyId)
-  const variants = currentDuty?.variants ?? []
+  const variants = leafVariants(currentDuty?.variants)
 
   const syncPoints = (nextDate: string, nextDutyId: string, nextVariantId: string) => {
     const d = duties.find((x) => x.id === nextDutyId)
@@ -162,7 +162,7 @@ function ManualAssignForm({
             onChange={(e) => {
               const next = e.target.value
               const d = duties.find((x) => x.id === next)
-              const nextVariant = d?.variants?.[0]?.id ?? ''
+              const nextVariant = leafVariants(d?.variants)[0]?.id ?? ''
               setDutyId(next)
               setVariantId(nextVariant)
               syncPoints(date, next, nextVariant)

@@ -13,7 +13,9 @@ import {
   TAG_FILTER_MODE_META,
 } from '../types'
 import { sortedDutyTypes } from '../lib/stats'
-import { DUTY_COLORS, newVariant } from '../lib/defaults'
+import { DUTY_COLORS, leafVariants } from '../lib/defaults'
+import { VariantTreeEditor } from './VariantTreeEditor'
+import { osTaxonomyDutySeed } from '../lib/seedOsCategories'
 import { ColorPalette, DutyBadge, Field, Modal, Segmented } from './ui'
 
 const TAG_MODE_CLASS: Record<TagFilterMode, string> = {
@@ -167,7 +169,7 @@ export function DutyTypesEditor() {
           Оберіть робочу групу в канцелярії (Налаштування), щоб редагувати види нарядів.
         </p>
       )}
-      <div className="card flex flex-wrap items-center gap-3 p-3">
+      <div className="card flex flex-col gap-3 p-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Segmented
           value={scopeTab}
           onChange={setScopeTab}
@@ -176,13 +178,49 @@ export function DutyTypesEditor() {
             DUTY_SCOPE_META[id].label,
           ])}
         />
-        <button className="btn-primary ml-auto" disabled={!canEdit} onClick={() => setAddOpen(true)}>
+        <button
+          type="button"
+          className="btn-secondary w-full sm:w-auto"
+          disabled={!canEdit || scopeTab !== 'duties'}
+          title="Додати шаблон: Н (11), ЧАУД, ПГД з вкладеннями, ЗАХ"
+          onClick={() => {
+            if (
+              !confirm(
+                'Додати шаблон о/с: наряди Н (ЧК…ПЧ27НК), ЧАУД, ПГД (з підпунктами), ЗАХ? Існуючі види не видаляються.',
+              )
+            )
+              return
+            for (const s of osTaxonomyDutySeed().filter((x) => x.scope === 'duties')) {
+              addDutyType({
+                name: s.name,
+                short: s.short,
+                points: s.points,
+                defaultSlots: s.defaultSlots,
+                allowExtraPerson: s.allowExtraPerson,
+                excludeTags: s.excludeTags,
+                requireTags: s.requireTags,
+                variants: s.variants,
+                scope: 'duties',
+                cadenceMode: s.cadenceMode,
+                cadenceDays: s.cadenceDays,
+                periodicityDays: s.periodicityDays,
+                isMainDuty: s.isMainDuty,
+                durationDays: s.durationDays,
+                blocksFullDay: s.blocksFullDay,
+              })
+            }
+          }}
+        >
+          Шаблон Н / ПГД / ЗАХ
+        </button>
+        <button className="btn-primary w-full sm:ml-auto sm:w-auto" disabled={!canEdit} onClick={() => setAddOpen(true)}>
           <Plus size={14} /> Додати вид
         </button>
       </div>
 
-      <div className="card overflow-hidden overflow-x-auto">
-        <table className="w-full min-w-[64rem]">
+      <div className="card overflow-hidden">
+        <div className="table-scroll">
+        <table className="w-full min-w-[40rem] md:min-w-[64rem]">
           <thead>
             <tr>
               <th className="th w-10" />
@@ -247,70 +285,16 @@ export function DutyTypesEditor() {
                       className="mt-1 text-[10px] text-brand-300 hover:underline"
                       onClick={() => setVariantsFor((id) => (id === d.id ? null : d.id))}
                     >
-                      {(d.variants?.length ?? 0) > 0
-                        ? `Підпункти (${d.variants.length})`
-                        : 'Підпункти…'}
+                      {(leafVariants(d.variants).length > 0
+                        ? `Підпункти (${leafVariants(d.variants).length})`
+                        : 'Підпункти…')}
                     </button>
                     {variantsFor === d.id && (
-                      <div className="mt-2 space-y-1.5 rounded border border-border bg-surface-2 p-2">
-                        {(d.variants ?? []).map((v, vi) => (
-                          <div key={v.id} className="flex flex-wrap items-center gap-1.5">
-                            <input
-                              className="input min-w-28 flex-1 py-0.5 text-xs"
-                              value={v.name}
-                              placeholder="Назва"
-                              onChange={(e) => {
-                                const next = [...(d.variants ?? [])]
-                                next[vi] = { ...v, name: e.target.value }
-                                patchVariants(d.id, next)
-                              }}
-                            />
-                            <input
-                              className="input w-16 py-0.5 text-center text-xs uppercase"
-                              maxLength={5}
-                              value={v.short}
-                              onChange={(e) => {
-                                const next = [...(d.variants ?? [])]
-                                next[vi] = { ...v, short: e.target.value.toUpperCase() }
-                                patchVariants(d.id, next)
-                              }}
-                            />
-                            <input
-                              type="number"
-                              step="0.5"
-                              className="input w-16 py-0.5 text-center text-xs"
-                              value={d.isMainDuty ? 0 : v.points}
-                              disabled={d.isMainDuty}
-                              title="Бали підпункту"
-                              onChange={(e) => {
-                                const next = [...(d.variants ?? [])]
-                                next[vi] = { ...v, points: Number(e.target.value) || 0 }
-                                patchVariants(d.id, next)
-                              }}
-                            />
-                            <button
-                              className="btn-ghost btn-sm text-tint-red"
-                              onClick={() =>
-                                patchVariants(d.id, (d.variants ?? []).filter((x) => x.id !== v.id))
-                              }
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm"
-                          onClick={() =>
-                            patchVariants(d.id, [
-                              ...(d.variants ?? []),
-                              newVariant(d.isMainDuty ? { points: 0 } : undefined),
-                            ])
-                          }
-                        >
-                          <Plus size={12} /> Підпункт
-                        </button>
-                      </div>
+                      <VariantTreeEditor
+                        variants={d.variants ?? []}
+                        zeroPoints={d.isMainDuty}
+                        onChange={(variants) => patchVariants(d.id, variants)}
+                      />
                     )}
                     <div className="mt-1.5 flex flex-wrap gap-2 text-[10px] text-fg-muted">
                       <label className="inline-flex items-center gap-1">
@@ -536,6 +520,7 @@ export function DutyTypesEditor() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       <Modal

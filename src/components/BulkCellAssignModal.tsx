@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../store'
 import type { ISODate } from '../types'
 import { dutyPointsForDate, isWeekend } from '../lib/dates'
-import { dutyBasePoints } from '../lib/defaults'
+import { dutyBasePoints, leafVariants } from '../lib/defaults'
 import { uid } from '../lib/id'
 import { activeDutyTypes } from '../lib/stats'
 import { Field, Modal } from './ui'
@@ -58,7 +58,7 @@ function BulkCellAssignForm({
   )
   const [dutyId, setDutyId] = useState(duties[0]?.id ?? '')
   const currentDuty = duties.find((d) => d.id === dutyId)
-  const [variantId, setVariantId] = useState(currentDuty?.variants?.[0]?.id ?? '')
+  const [variantId, setVariantId] = useState(leafVariants(currentDuty?.variants)[0]?.id ?? '')
   const [note, setNote] = useState('')
 
   const peopleCount = useMemo(() => new Set(cells.map((c) => c.personId)).size, [cells])
@@ -136,7 +136,7 @@ function BulkCellAssignForm({
               const next = e.target.value
               const d = duties.find((x) => x.id === next)
               setDutyId(next)
-              setVariantId(d?.variants?.[0]?.id ?? '')
+              setVariantId(leafVariants(d?.variants)[0]?.id ?? '')
             }}
           >
             {duties.map((d) => (
@@ -147,10 +147,10 @@ function BulkCellAssignForm({
             ))}
           </select>
         </Field>
-        {(currentDuty?.variants?.length ?? 0) > 0 && (
+        {(leafVariants(currentDuty?.variants).length > 0) && (
           <Field label="Підпункт">
             <select className="input" value={variantId} onChange={(e) => setVariantId(e.target.value)}>
-              {currentDuty!.variants.map((v) => (
+              {leafVariants(currentDuty!.variants).map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.name} · {v.points} б.
                 </option>

@@ -1,13 +1,63 @@
 /** Дата у форматі YYYY-MM-DD (локальна). */
 export type ISODate = string
 
-export type PersonStatus = 'active' | 'sick' | 'leave' | 'excluded'
+/**
+ * Категорії, де може бути о/с (особовий склад).
+ * «Н» (наряд) — окремі види нарядів у журналі, не статус людини.
+ */
+export type PersonStatus =
+  | 'roster'
+  | 'active'
+  | 'bedrest'
+  | 'leave'
+  | 'trip'
+  | 'furlough'
+  | 'hospital'
+  | 'excluded'
+  /** @deprecated → bedrest */
+  | 'sick'
 
 export const PERSON_STATUS_LABEL: Record<PersonStatus, string> = {
-  active: 'В наяв.',
-  sick: 'Хворіє',
-  leave: 'Відпустка / звільнення',
+  roster: 'З/с — за списком',
+  active: 'В/н — в наявності',
+  bedrest: 'Л/р — ліжковий режим',
+  leave: 'В — відпустка',
+  trip: 'Вд — відрядження',
+  furlough: 'Зв — звільнення',
+  hospital: 'Ш — шпиталь',
   excluded: 'Не призначати',
+  sick: 'Л/р — ліжковий режим',
+}
+
+/** Коротка позначка для таблиць / журналу. */
+export const PERSON_STATUS_SHORT: Record<PersonStatus, string> = {
+  roster: 'З/с',
+  active: 'В/н',
+  bedrest: 'Л/р',
+  leave: 'В',
+  trip: 'Вд',
+  furlough: 'Зв',
+  hospital: 'Ш',
+  excluded: '—',
+  sick: 'Л/р',
+}
+
+/** Статуси для UI (без deprecated). */
+export const PERSON_STATUS_OPTIONS: PersonStatus[] = [
+  'roster',
+  'active',
+  'bedrest',
+  'leave',
+  'trip',
+  'furlough',
+  'hospital',
+  'excluded',
+]
+
+export function normalizePersonStatus(v: unknown): PersonStatus {
+  if (v === 'sick') return 'bedrest'
+  if (typeof v === 'string' && v in PERSON_STATUS_LABEL && v !== 'sick') return v as PersonStatus
+  return 'active'
 }
 
 export type ThemeId = 'light' | 'dark' | 'midnight'
@@ -62,12 +112,12 @@ export function setTagFilterMode(
 }
 
 export const PERSON_TAG_META: Record<PersonTag, { short: string; label: string; className: string }> = {
-  female: { short: 'ж', label: 'Жінка', className: 'bg-tint-fuchsia/20 text-tint-fuchsia' },
+  female: { short: 'ж', label: 'о/с (ж) — жінка', className: 'bg-tint-fuchsia/20 text-tint-fuchsia' },
   kyiv: { short: 'к', label: 'Киянин / киянка', className: 'bg-tint-sky/20 text-tint-sky' },
-  commander: { short: 'кв', label: 'Командир відділення', className: 'bg-tint-amber/20 text-tint-amber' },
+  commander: { short: 'КВ', label: 'КВ — командир відділення', className: 'bg-tint-amber/20 text-tint-amber' },
   groupCommander: {
-    short: 'кг',
-    label: 'Командир групи',
+    short: 'КГ',
+    label: 'КГ — командир групи',
     className: 'bg-tint-orange/20 text-tint-orange',
   },
 }
@@ -160,8 +210,10 @@ export interface DutyVariant {
   id: string
   name: string
   short: string
-  /** Бали саме цього підпункту. */
+  /** Бали саме цього підпункту (для листків без дітей). */
   points: number
+  /** Вкладені підпункти (напр. ПГД → Г12 → ЦП). */
+  children?: DutyVariant[]
   /**
    * @deprecated перенесено на DutyType.blocksFullDay; лишається для міграції старих даних.
    */
@@ -172,7 +224,7 @@ export interface DutyVariant {
 export type DutyScope = 'duties' | 'myropil'
 
 export const DUTY_SCOPE_META: Record<DutyScope, { label: string; hint: string }> = {
-  duties: { label: 'Звичайні', hint: 'Основний журнал нарядів' },
+  duties: { label: 'Н — наряди', hint: 'ЧК, ДК, ПГД, ЗАХ, ЧАУД…' },
   myropil: { label: 'Миропіль', hint: 'Окремі пункти для журналу Миропіль' },
 }
 
@@ -309,9 +361,9 @@ export const JOURNAL_META: Record<
   { label: string; short: string; hint: string; affectsRating: boolean }
 > = {
   duties: {
-    label: 'Наряди',
-    short: 'Наряди',
-    hint: 'Основний журнал нарядів і робіт',
+    label: 'Журнал',
+    short: 'Журнал',
+    hint: 'Наряди о/с: ЧК, ДК, ПГД, ЗАХ, ЧАУД…',
     affectsRating: true,
   },
   conduct: {

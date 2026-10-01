@@ -41,7 +41,7 @@ const TAB_META: Array<{ id: AppTab; label: string; icon: typeof Table2 }> = [
   { id: 'assign', label: 'Призначити', icon: Wand2 },
   { id: 'history', label: 'Журнал', icon: CalendarDays },
   { id: 'people', label: 'Люди', icon: Users },
-  { id: 'duties', label: 'Види нарядів', icon: ListChecks },
+  { id: 'duties', label: 'Наряди', icon: ListChecks },
   { id: 'settings', label: 'Налаштування', icon: Settings },
 ]
 
@@ -68,7 +68,7 @@ function Spinner() {
 }
 
 export default function App() {
-  const { session, logout, effectiveGroup, authReady } = useAuth()
+  const { session, logout, effectiveGroup, authReady, apiMode } = useAuth()
   const allowedTabs = useMemo(
     () => (session ? tabsForRole(session.role) : (['table'] as AppTab[])),
     [session],
@@ -84,6 +84,7 @@ export default function App() {
   const theme = useStore((s) => s.settings.theme)
   const updateSettings = useStore((s) => s.updateSettings)
   const cadet = isCadet(session?.role)
+  const [apiRetrying, setApiRetrying] = useState(false)
 
   useEffect(() => {
     if (!authReady) return
@@ -145,6 +146,31 @@ export default function App() {
     )
   }
 
+  if (!apiMode) {
+    return (
+      <div className="flex min-h-full flex-col items-center justify-center gap-4 px-4 text-center">
+        <AlertTriangle size={36} className="text-tint-amber" />
+        <div className="max-w-md space-y-2">
+          <p className="text-lg font-semibold text-fg">Сервер недоступний</p>
+          <p className="text-sm text-fg-muted">
+            Збереження лише на бекенді. Локальний режим повністю вимкнено. Оновіть сторінку після відновлення API.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={apiRetrying}
+          onClick={() => {
+            setApiRetrying(true)
+            window.location.reload()
+          }}
+        >
+          {apiRetrying ? 'Завантаження…' : 'Спробувати знову'}
+        </button>
+      </div>
+    )
+  }
+
   if (!session) {
     return (
       <div className="flex min-h-full flex-col">
@@ -155,17 +181,17 @@ export default function App() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-40 shrink-0 border-b border-border bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex max-w-screen-2xl items-center gap-4 px-4 py-2">
-          <div className="flex items-center gap-2">
-            <img src="./favicon.svg" alt="" className="h-7 w-7" />
+      <header className="safe-pt sticky top-0 z-40 shrink-0 border-b border-border bg-surface/85 backdrop-blur">
+        <div className="mx-auto flex max-w-screen-2xl items-center gap-2 px-3 py-2 md:gap-4 md:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <img src="./favicon.svg" alt="" className="h-7 w-7 shrink-0" />
             <span className="text-base font-bold tracking-tight text-fg">ExelSCCI</span>
-            <span className="hidden text-xs text-fg-faint sm:inline">
+            <span className="truncate text-xs text-fg-faint">
               {ROLE_META[session.role].short}
               {effectiveGroup ? ` · ${effectiveGroup}` : ''}
             </span>
           </div>
-          <nav className="ml-auto flex items-center gap-1 overflow-x-auto">
+          <nav className="ml-auto hidden items-center gap-1 overflow-x-auto md:flex">
             {visibleTabs.map((t) => {
               const Icon = t.icon
               const active = tab === t.id
@@ -179,7 +205,7 @@ export default function App() {
                   )}
                 >
                   <Icon size={15} />
-                  <span className="hidden md:inline">{t.label}</span>
+                  <span>{t.label}</span>
                   {t.id === 'people' && peopleCount > 0 && (
                     <span
                       className={clsx(
@@ -193,33 +219,35 @@ export default function App() {
                 </button>
               )
             })}
+          </nav>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 md:ml-1">
             <button
-              className="btn-ghost btn-sm ml-1 shrink-0"
+              className="btn-ghost btn-sm"
               title={`Тема: ${THEME_META[theme].label}. Клік — наступна`}
               onClick={() => updateSettings({ theme: nextTheme(theme) })}
             >
               <ThemeIcon size={16} />
-              <span className="hidden sm:inline">{THEME_META[theme].label}</span>
+              <span className="hidden lg:inline">{THEME_META[theme].label}</span>
             </button>
-            <button className="btn-ghost btn-sm shrink-0" title="Вийти" onClick={handleLogout}>
+            <button className="btn-ghost btn-sm" title="Вийти" onClick={handleLogout}>
               <LogOut size={16} />
-              <span className="hidden sm:inline">Вийти</span>
+              <span className="hidden lg:inline">Вийти</span>
             </button>
-          </nav>
+          </div>
         </div>
       </header>
 
       <main
         className={clsx(
-          'w-full flex-1',
-          tab === 'history' ? '' : 'mx-auto max-w-screen-2xl px-4 py-4',
+          'w-full flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0',
+          tab === 'history' ? '' : 'mx-auto max-w-screen-2xl px-3 py-3 md:px-4 md:py-4',
         )}
       >
         {dbError && (
-          <div className="mb-3 flex items-center gap-2 alert-danger px-3 py-2 text-sm">
-            <AlertTriangle size={16} />
-            <span>Помилка збереження в базу: {dbError}</span>
-            <button className="btn-ghost btn-sm ml-auto" onClick={() => useStore.setState({ dbError: null })}>
+          <div className="mb-3 flex items-start gap-2 alert-danger px-3 py-2 text-sm md:items-center">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0 md:mt-0" />
+            <span className="min-w-0 break-words">Помилка збереження в базу: {dbError}</span>
+            <button className="btn-ghost btn-sm ml-auto shrink-0" onClick={() => useStore.setState({ dbError: null })}>
               <X size={14} />
             </button>
           </div>
@@ -237,6 +265,44 @@ export default function App() {
           </Suspense>
         )}
       </main>
+
+      <nav
+        className="safe-pb fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden"
+        aria-label="Навігація"
+      >
+        <div className="mx-auto flex max-w-lg items-stretch justify-around gap-0.5 px-1 pt-1">
+          {visibleTabs.map((t) => {
+            const Icon = t.icon
+            const active = tab === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => go(t.id)}
+                className={clsx(
+                  'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md px-1 py-1.5 text-[10px] font-medium transition-colors',
+                  active ? 'text-brand-400' : 'text-fg-faint',
+                )}
+              >
+                <span
+                  className={clsx(
+                    'relative inline-flex h-8 w-8 items-center justify-center rounded-lg',
+                    active && 'bg-brand-600/20',
+                  )}
+                >
+                  <Icon size={18} strokeWidth={active ? 2.25 : 1.75} />
+                  {t.id === 'people' && peopleCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-3.5 rounded-full bg-brand-600 px-1 text-[9px] leading-3.5 text-white tabular-nums">
+                      {peopleCount > 99 ? '99+' : peopleCount}
+                    </span>
+                  )}
+                </span>
+                <span className="max-w-full truncate">{t.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }

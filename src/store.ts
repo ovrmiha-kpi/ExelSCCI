@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { AppData, Assignment, DutyType, Person, PersonStatRow, PersonTag, Settings } from './types'
-import { DEFAULT_SETTINGS, normalizeJournalId, normalizePersonTags } from './types'
+import { DEFAULT_SETTINGS, normalizeJournalId, normalizePersonStatus, normalizePersonTags } from './types'
 import { normalizeSettings } from './lib/myropil'
 import { uid } from './lib/id'
 import { DUTY_COLORS, normalizeDuty } from './lib/defaults'
@@ -23,7 +23,7 @@ import {
   saveSettings,
   normalizeAssignment,
 } from './db'
-import { apiGetBundle, apiPutBundle, detectApiMode, isApiMode } from './lib/api'
+import { apiGetBundle, apiPutBundle, assertApiMode, detectApiMode, isApiMode } from './lib/api'
 
 type PersonInput = Omit<Person, 'id' | 'createdAt'>
 type DutyTypeInput = Omit<DutyType, 'id' | 'order' | 'archived'>
@@ -73,19 +73,33 @@ export type Store = {
   workspaceGroup: string | null
 } & Actions
 
-function persist(op: () => Promise<unknown>) {
-  op()
-    .then(() => scheduleServerSync())
-    .catch((e: unknown) => {
-      console.error('[db]', e)
-      useStore.setState({ dbError: e instanceof Error ? e.message : String(e) })
-    })
+const SERVER_REQUIRED_MSG = 'Сервер недоступний — локальне збереження вимкнено. Зміни не записано.'
+
+async function ensureApiOrFail(): Promise<boolean> {
+  if (isApiMode()) return true
+  const ok = await detectApiMode()
+  if (!ok) {
+    useStore.setState({ dbError: SERVER_REQUIRED_MSG })
+    return false
+  }
+  return true
 }
 
-let syncTimer: ReturnType<typeof setTimeout> | null = null
+function persist(op: () => Promise<unknown>) {
+  void (async () => {
+    if (!(await ensureApiOrFail())) return
+    try {
+      await op()
+      await pushGroupBundleToServer()
+    } catch (e: unknown) {
+      console.error('[db]', e)
+      useStore.setState({ dbError: e instanceof Error ? e.message : String(e) })
+    }
+  })()
+}
 
 async function pushGroupBundleToServer() {
-  if (!isApiMode()) return
+  assertApiMode()
   const group = useStore.getState().workspaceGroup
   if (!group) return
   const state = useStore.getState()
@@ -102,17 +116,6 @@ async function pushGroupBundleToServer() {
     assignments,
     settings: state.settings,
   })
-}
-
-function scheduleServerSync() {
-  if (!isApiMode()) return
-  if (syncTimer) clearTimeout(syncTimer)
-  syncTimer = setTimeout(() => {
-    pushGroupBundleToServer().catch((e: unknown) => {
-      console.error('[api]', e)
-      useStore.setState({ dbError: e instanceof Error ? e.message : String(e) })
-    })
-  }, 450)
 }
 
 function patchStat(stats: PersonStatRow[], row: PersonStatRow): PersonStatRow[] {
@@ -138,7 +141,19 @@ export const useStore = create<Store>()((set, get) => ({
 
   hydrate: async () => {
     try {
-      await detectApiMode()
+      const ok = await detectApiMode()
+      if (!ok) {
+        applyTheme(DEFAULT_SETTINGS.theme)
+        set({
+          people: [],
+          dutyTypes: [],
+          settings: { ...DEFAULT_SETTINGS },
+          stats: [],
+          hydrated: false,
+          dbError: SERVER_REQUIRED_MSG,
+        })
+        return
+      }
       const data = await bootstrap()
       const theme = isThemeId(data.settings.theme)
         ? data.settings.theme
@@ -151,17 +166,17 @@ export const useStore = create<Store>()((set, get) => ({
         settings,
         stats: data.stats,
         hydrated: true,
+        dbError: null,
       })
     } catch (e) {
       console.error('[db] bootstrap', e)
-      const fallback = freshData()
-      applyTheme(fallback.settings.theme)
+      applyTheme(DEFAULT_SETTINGS.theme)
       set({
-        people: fallback.people,
-        dutyTypes: fallback.dutyTypes.map(normalizeDuty),
-        settings: fallback.settings,
+        people: [],
+        dutyTypes: [],
+        settings: { ...DEFAULT_SETTINGS },
         stats: [],
-        hydrated: true,
+        hydrated: false,
         dbError: e instanceof Error ? e.message : String(e),
       })
     }
@@ -170,49 +185,40 @@ export const useStore = create<Store>()((set, get) => ({
   setWorkspaceGroup: async (group) => {
     const g = group && group.trim() ? group.trim() : null
     try {
-      if (g && isApiMode()) {
-        const bundle = await apiGetBundle(g)
-        const isEmptyBundle =
-          (!bundle.people || bundle.people.length === 0) &&
-          (!bundle.dutyTypes || bundle.dutyTypes.length === 0) &&
-          (!bundle.assignments || bundle.assignments.length === 0) &&
-          (!bundle.settings || Object.keys(bundle.settings as object).length === 0)
-        if (isEmptyBundle) {
-          await ensureGroupContext(g)
-          const core = await loadCore(g)
-          await apiPutBundle(g, {
-            people: core.people.filter((p) => p.group === g),
-            dutyTypes: core.dutyTypes,
-            assignments: (await db.assignments.toArray())
-              .filter((a) => core.people.some((p) => p.id === a.personId && p.group === g))
-              .map(normalizeAssignment),
-            settings: core.settings,
-          })
-          const again = await apiGetBundle(g)
-          const applied = await applyServerBundle(g, {
-            people: again.people as Person[],
-            dutyTypes: again.dutyTypes as DutyType[],
-            assignments: again.assignments as Assignment[],
-            settings: again.settings as Partial<Settings> | null,
-          })
-          const theme = isThemeId(applied.settings.theme)
-            ? applied.settings.theme
-            : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
-          applyTheme(theme)
-          set({
-            workspaceGroup: g,
-            people: applied.people,
-            dutyTypes: applied.dutyTypes.map(normalizeDuty),
-            settings: { ...applied.settings, theme },
-            stats: applied.stats,
-          })
-          return
-        }
+      if (!(await ensureApiOrFail())) return
+      if (!g) {
+        set({
+          workspaceGroup: null,
+          dutyTypes: [],
+          people: [],
+          stats: [],
+        })
+        return
+      }
+
+      const bundle = await apiGetBundle(g)
+      const isEmptyBundle =
+        (!bundle.people || bundle.people.length === 0) &&
+        (!bundle.dutyTypes || bundle.dutyTypes.length === 0) &&
+        (!bundle.assignments || bundle.assignments.length === 0) &&
+        (!bundle.settings || Object.keys(bundle.settings as object).length === 0)
+      if (isEmptyBundle) {
+        await ensureGroupContext(g)
+        const core = await loadCore(g)
+        await apiPutBundle(g, {
+          people: core.people.filter((p) => p.group === g),
+          dutyTypes: core.dutyTypes,
+          assignments: (await db.assignments.toArray())
+            .filter((a) => core.people.some((p) => p.id === a.personId && p.group === g))
+            .map(normalizeAssignment),
+          settings: core.settings,
+        })
+        const again = await apiGetBundle(g)
         const applied = await applyServerBundle(g, {
-          people: bundle.people as Person[],
-          dutyTypes: bundle.dutyTypes as DutyType[],
-          assignments: bundle.assignments as Assignment[],
-          settings: bundle.settings as Partial<Settings> | null,
+          people: again.people as Person[],
+          dutyTypes: again.dutyTypes as DutyType[],
+          assignments: again.assignments as Assignment[],
+          settings: again.settings as Partial<Settings> | null,
         })
         const theme = isThemeId(applied.settings.theme)
           ? applied.settings.theme
@@ -224,30 +230,27 @@ export const useStore = create<Store>()((set, get) => ({
           dutyTypes: applied.dutyTypes.map(normalizeDuty),
           settings: { ...applied.settings, theme },
           stats: applied.stats,
+          dbError: null,
         })
         return
       }
-
-      if (g) await ensureGroupContext(g)
-      const core = await loadCore(g)
-      const theme = isThemeId(core.settings.theme)
-        ? core.settings.theme
+      const applied = await applyServerBundle(g, {
+        people: bundle.people as Person[],
+        dutyTypes: bundle.dutyTypes as DutyType[],
+        assignments: bundle.assignments as Assignment[],
+        settings: bundle.settings as Partial<Settings> | null,
+      })
+      const theme = isThemeId(applied.settings.theme)
+        ? applied.settings.theme
         : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
-      const settings = g
-        ? { ...core.settings, theme }
-        : normalizeSettings({
-            ...DEFAULT_SETTINGS,
-            theme,
-            myropilStays: core.settings.myropilStays ?? [],
-            squadRanges: core.settings.squadRanges ?? [],
-          })
       applyTheme(theme)
       set({
         workspaceGroup: g,
-        dutyTypes: g ? core.dutyTypes.map(normalizeDuty) : [],
-        settings,
-        people: core.people,
-        stats: core.stats,
+        people: applied.people,
+        dutyTypes: applied.dutyTypes.map(normalizeDuty),
+        settings: { ...applied.settings, theme },
+        stats: applied.stats,
+        dbError: null,
       })
     } catch (e) {
       console.error('[workspace]', e)
@@ -260,7 +263,7 @@ export const useStore = create<Store>()((set, get) => ({
       id: uid(),
       name: p.name.trim(),
       group: (p.group ?? '').trim(),
-      status: p.status ?? 'active',
+      status: normalizePersonStatus(p.status),
       basePoints: Number(p.basePoints ?? 0) || 0,
       note: p.note ?? '',
       tags: normalizePersonTags(p.tags),
@@ -288,7 +291,7 @@ export const useStore = create<Store>()((set, get) => ({
         id: uid(),
         name,
         group: (r.group ?? '').trim(),
-        status: r.status ?? 'active',
+        status: normalizePersonStatus(r.status),
         basePoints: Number(r.basePoints ?? 0) || 0,
         note: r.note ?? '',
         tags: normalizePersonTags(r.tags),
@@ -588,7 +591,7 @@ export const useStore = create<Store>()((set, get) => ({
       id: uid(),
       name,
       group: i < 6 ? '1 взвод' : '2 взвод',
-      status: i === 7 ? 'sick' : 'active',
+      status: i === 7 ? 'bedrest' : 'active',
       basePoints: 0,
       note: '',
       tags: [] as PersonTag[],

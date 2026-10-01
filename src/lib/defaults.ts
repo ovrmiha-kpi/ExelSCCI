@@ -1,6 +1,7 @@
 import type { DutyCadenceMode, DutyScope, DutyType, DutyVariant, PersonTag } from '../types'
 import { isPersonTag } from '../types'
 import { uid } from './id'
+import { osTaxonomyDutySeed } from './seedOsCategories'
 
 function normalizeTagList(raw: unknown): PersonTag[] {
   if (!Array.isArray(raw)) return []
@@ -48,12 +49,60 @@ function normalizeCadenceMode(v: unknown): DutyCadenceMode {
 }
 
 function normalizeVariant(v: DutyVariant): DutyVariant {
+  const children = Array.isArray(v.children)
+    ? v.children.filter(Boolean).map(normalizeVariant)
+    : undefined
   return {
     id: v.id || uid(),
     name: v.name || 'Підпункт',
-    short: (v.short || 'ПП').slice(0, 5),
+    short: (v.short || 'ПП').slice(0, 8),
     points: Number(v.points) || 0,
+    ...(children && children.length > 0 ? { children } : {}),
   }
+}
+
+/** Листки дерева підпунктів (призначення лише на них). */
+export function leafVariants(variants: DutyVariant[] | undefined): DutyVariant[] {
+  const out: DutyVariant[] = []
+  for (const v of variants ?? []) {
+    if (v.children && v.children.length > 0) out.push(...leafVariants(v.children))
+    else out.push(v)
+  }
+  return out
+}
+
+/** Знайти підпункт на будь-якій глибині. */
+export function findVariantDeep(
+  variants: DutyVariant[] | undefined,
+  variantId?: string | null,
+): DutyVariant | undefined {
+  if (!variantId) return undefined
+  for (const v of variants ?? []) {
+    if (v.id === variantId) return v
+    const nested = findVariantDeep(v.children, variantId)
+    if (nested) return nested
+  }
+  return undefined
+}
+
+/** Шлях назв до підпункту (для підказів). */
+export function variantPathLabel(
+  variants: DutyVariant[] | undefined,
+  variantId?: string | null,
+): string {
+  if (!variantId) return ''
+  const walk = (list: DutyVariant[], trail: string[]): string[] | null => {
+    for (const v of list) {
+      const next = [...trail, v.short || v.name]
+      if (v.id === variantId) return next
+      if (v.children?.length) {
+        const hit = walk(v.children, next)
+        if (hit) return hit
+      }
+    }
+    return null
+  }
+  return (walk(variants ?? [], []) ?? []).join(' › ')
 }
 
 /** Старий шаблонний «підпункт цілодобова» — більше не потрібен (є прапорець на виді). */
@@ -89,14 +138,14 @@ export function normalizeDuty(d: DutyType): DutyType {
 }
 
 export function effectiveSlots(duty: DutyType): number {
-  const variants = duty.variants ?? []
-  if (variants.length > 0) return variants.length
+  const leaves = leafVariants(duty.variants)
+  if (leaves.length > 0) return leaves.length
   return Math.max(1, (duty.defaultSlots || 1) + (duty.allowExtraPerson ? 1 : 0))
 }
 
 export function findVariant(duty: DutyType | undefined, variantId?: string | null): DutyVariant | undefined {
   if (!duty || !variantId) return undefined
-  return (duty.variants ?? []).find((v) => v.id === variantId)
+  return findVariantDeep(duty.variants, variantId)
 }
 
 export function dutyBasePoints(duty: DutyType, variantId?: string | null): number {
@@ -117,161 +166,16 @@ export function dutyHoverTitle(
   note?: string,
 ): string {
   if (!duty) return '—'
-  const v = findVariant(duty, variantId)
+  const path = variantPathLabel(duty.variants, variantId)
   const parts = [duty.name]
-  if (v) parts.push(v.name)
+  if (path) parts.push(path)
   if (duty.isMainDuty) parts.push('0 б.')
   else parts.push(`${points} б.`)
   if (note) parts.push(note)
   return parts.join(' · ')
 }
 
-const DUTY_SEED: Array<Omit<DutyType, 'id' | 'archived' | 'order' | 'color'>> = [
-  {
-    name: 'Днювальний',
-    short: 'ДН',
-    points: 2,
-    defaultSlots: 2,
-    allowExtraPerson: false,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'duties',
-    cadenceMode: 'minGap',
-    cadenceDays: 0,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-  {
-    name: 'Черговий роти',
-    short: 'ЧР',
-    points: 3,
-    defaultSlots: 1,
-    allowExtraPerson: false,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'duties',
-    cadenceMode: 'minGap',
-    cadenceDays: 0,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-  {
-    name: 'ПГД',
-    short: 'ПГД',
-    points: 1,
-    defaultSlots: 1,
-    allowExtraPerson: false,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'duties',
-    cadenceMode: 'minGap',
-    cadenceDays: 0,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-  {
-    name: 'Наряд по їдальні',
-    short: 'ЇД',
-    points: 2,
-    defaultSlots: 2,
-    allowExtraPerson: true,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'duties',
-    cadenceMode: 'minGap',
-    cadenceDays: 0,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-  {
-    name: 'Прибирання території',
-    short: 'ПТ',
-    points: 1,
-    defaultSlots: 2,
-    allowExtraPerson: false,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'duties',
-    cadenceMode: 'minGap',
-    cadenceDays: 0,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-  {
-    name: 'Госпроботи',
-    short: 'ГР',
-    points: 1,
-    defaultSlots: 1,
-    allowExtraPerson: false,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'duties',
-    cadenceMode: 'minGap',
-    cadenceDays: 0,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-  {
-    name: 'Черговий (Миропіль)',
-    short: 'ЧМ',
-    points: 2,
-    defaultSlots: 1,
-    allowExtraPerson: false,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'myropil',
-    cadenceMode: 'maxStreak',
-    cadenceDays: 2,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-  {
-    name: 'Днювальний (Миропіль)',
-    short: 'ДМ',
-    points: 2,
-    defaultSlots: 2,
-    allowExtraPerson: false,
-    excludeTags: [],
-    requireTags: [],
-    variants: [],
-    scope: 'myropil',
-    cadenceMode: 'minGap',
-    cadenceDays: 1,
-    periodicityDays: 0,
-    group: '',
-    isMainDuty: false,
-    durationDays: 1,
-    blocksFullDay: false,
-  },
-]
+const DUTY_SEED: Array<Omit<DutyType, 'id' | 'archived' | 'order' | 'color'>> = osTaxonomyDutySeed()
 
 export function defaultDutyTypes(group = ''): DutyType[] {
   return DUTY_SEED.map((d, i) =>
@@ -287,11 +191,13 @@ export function defaultDutyTypes(group = ''): DutyType[] {
 }
 
 export function newVariant(partial?: Partial<DutyVariant>): DutyVariant {
+  const children = partial?.children?.map((c) => newVariant(c))
   return {
-    id: uid(),
+    id: partial?.id ?? uid(),
     name: partial?.name ?? 'Підпункт',
-    short: (partial?.short ?? 'ПП').slice(0, 5).toUpperCase(),
+    short: (partial?.short ?? 'ПП').slice(0, 8).toUpperCase(),
     points: Number(partial?.points ?? 1) || 0,
+    ...(children && children.length > 0 ? { children } : {}),
   }
 }
 

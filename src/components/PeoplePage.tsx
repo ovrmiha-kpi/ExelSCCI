@@ -3,7 +3,7 @@ import { ClipboardPaste, Pencil, Plus, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useStore } from '../store'
 import type { Person, PersonStatus, PersonTag } from '../types'
-import { PERSON_STATUS_LABEL, PERSON_TAG_META, PERSON_TAGS } from '../types'
+import { PERSON_STATUS_LABEL, PERSON_STATUS_OPTIONS, PERSON_TAG_META, PERSON_TAGS } from '../types'
 import { sortedDutyTypes, statsFromRows } from '../lib/stats'
 import { todayISO } from '../lib/dates'
 import { parsePeopleList } from '../lib/export'
@@ -12,7 +12,7 @@ import { filterByGroupLock } from '../lib/auth'
 import { useEffectiveGroup } from '../lib/AuthContext'
 import { loadUiPrefs, saveUiPrefs } from '../lib/uiPrefs'
 
-const STATUSES = Object.keys(PERSON_STATUS_LABEL) as PersonStatus[]
+const STATUSES = PERSON_STATUS_OPTIONS
 
 type SortKey = 'group' | 'name' | 'points' | 'count'
 const SORT_KEYS: SortKey[] = ['group', 'name', 'points', 'count']

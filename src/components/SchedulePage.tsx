@@ -88,7 +88,11 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
   useEffect(() => {
     setJournalRaw((j) => normalizeJournalId(j))
   }, [])
-  const [kind, setKindRaw] = useState<RangeKind>(() => prefs.scheduleKind ?? 'month')
+  const [kind, setKindRaw] = useState<RangeKind>(() => {
+    if (prefs.scheduleKind) return prefs.scheduleKind
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) return 'week'
+    return 'month'
+  })
   const setKind = (k: RangeKind) => {
     setKindRaw(k)
     saveUiPrefs({ scheduleKind: k }, effectiveGroup)
@@ -173,7 +177,10 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
     if (effectiveGroup) setGroup(effectiveGroup)
     const p = loadUiPrefs(effectiveGroup)
     setJournalRaw(normalizeJournalId(p.scheduleJournal ?? 'duties'))
-    setKindRaw(p.scheduleKind ?? 'month')
+    setKindRaw(
+      p.scheduleKind ??
+        (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'week' : 'month'),
+    )
     setRowsModeRaw(p.scheduleRowsMode ?? 'people')
     if (isPrefsISODate(p.scheduleAnchor)) setAnchorRaw(p.scheduleAnchor)
     setSearchRaw(p.scheduleSearch ?? '')
@@ -325,8 +332,9 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
 
   const dayColWidth = (d: ISODate) => {
     const n = Math.max(1, dayDensity.get(d) ?? 0)
-    const chip = isDutyJournal ? 2.4 : 3.2
-    return `${Math.max(2.6, n * chip)}rem`
+    const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    const chip = isDutyJournal ? (narrow ? 2.0 : 2.4) : narrow ? 2.6 : 3.2
+    return `${Math.max(narrow ? 2.15 : 2.6, n * chip)}rem`
   }
 
   const clearSelection = () => {
@@ -491,157 +499,162 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
           Оберіть робочу групу в «Налаштування → Канцелярія», щоб підтягнути види нарядів і правила цієї групи.
         </p>
       )}
-      <div className="sticky top-12 z-30 flex flex-wrap items-center gap-2 border-b border-border bg-surface/95 px-3 py-2 backdrop-blur">
-        <Segmented
-          value={journal}
-          onChange={setJournal}
-          options={JOURNAL_IDS.map((id) => [id, JOURNAL_META[id].short] as [JournalId, string])}
-        />
-
-        <div className="relative flex items-center gap-0.5" ref={monthPickerRef}>
-          <button className="btn-ghost btn-sm" onClick={() => shift(-1)} aria-label="Назад">
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            type="button"
-            className="btn-secondary btn-sm min-w-40 capitalize"
-            onClick={() => setMonthPickerOpen((v) => !v)}
-            title="Обрати місяць"
-          >
-            {title}
-          </button>
-          <button className="btn-ghost btn-sm" onClick={() => shift(1)} aria-label="Вперед">
-            <ChevronRight size={16} />
-          </button>
-          {monthPickerOpen && (
-            <div className="absolute top-full left-0 z-50 mt-1 w-64 rounded-lg border border-border bg-surface p-3 shadow-xl shadow-black/30">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => setPickerYear((y) => y - 1)}
-                  aria-label="Попередній рік"
-                >
-                  <ChevronLeft size={14} />
-                </button>
-                <span className="text-sm font-semibold tabular-nums text-fg">{pickerYear}</span>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => setPickerYear((y) => y + 1)}
-                  aria-label="Наступний рік"
-                >
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-1">
-                {MONTH_NAMES.map((name, i) => {
-                  const active =
-                    kind === 'month' &&
-                    Number(anchor.slice(0, 4)) === pickerYear &&
-                    Number(anchor.slice(5, 7)) === i + 1
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      className={clsx(
-                        'rounded-md px-1.5 py-1.5 text-xs capitalize transition-colors',
-                        active
-                          ? 'bg-brand-600 text-white'
-                          : 'text-fg-muted hover:bg-surface-3 hover:text-fg',
-                      )}
-                      onClick={() => pickMonth(pickerYear, i)}
-                    >
-                      {name}
-                    </button>
-                  )
-                })}
-              </div>
+      <div className="sticky top-12 z-30 border-b border-border bg-surface/95 backdrop-blur">
+        <div className="flex flex-col gap-2 px-2 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:px-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <Segmented
+              value={journal}
+              onChange={setJournal}
+              options={JOURNAL_IDS.map((id) => [id, JOURNAL_META[id].short] as [JournalId, string])}
+            />
+            <div className="relative flex min-w-0 flex-1 items-center gap-0.5 sm:flex-none" ref={monthPickerRef}>
+              <button className="btn-ghost btn-sm shrink-0" onClick={() => shift(-1)} aria-label="Назад">
+                <ChevronLeft size={18} />
+              </button>
               <button
                 type="button"
-                className="btn-secondary btn-sm mt-2 w-full"
-                onClick={() => {
-                  setAnchor(today)
-                  setMonthPickerOpen(false)
-                }}
+                className="btn-secondary btn-sm min-w-0 flex-1 truncate capitalize sm:min-w-40 sm:flex-none"
+                onClick={() => setMonthPickerOpen((v) => !v)}
+                title="Обрати місяць"
               >
-                Сьогодні
+                {title}
               </button>
+              <button className="btn-ghost btn-sm shrink-0" onClick={() => shift(1)} aria-label="Вперед">
+                <ChevronRight size={18} />
+              </button>
+              {monthPickerOpen && (
+                <div className="absolute top-full left-0 z-50 mt-1 w-[min(16rem,calc(100vw-1rem))] rounded-lg border border-border bg-surface p-3 shadow-xl shadow-black/30">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      onClick={() => setPickerYear((y) => y - 1)}
+                      aria-label="Попередній рік"
+                    >
+                      <ChevronLeft size={14} />
+                    </button>
+                    <span className="text-sm font-semibold tabular-nums text-fg">{pickerYear}</span>
+                    <button
+                      type="button"
+                      className="btn-ghost btn-sm"
+                      onClick={() => setPickerYear((y) => y + 1)}
+                      aria-label="Наступний рік"
+                    >
+                      <ChevronRight size={14} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {MONTH_NAMES.map((name, i) => {
+                      const active =
+                        kind === 'month' &&
+                        Number(anchor.slice(0, 4)) === pickerYear &&
+                        Number(anchor.slice(5, 7)) === i + 1
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          className={clsx(
+                            'rounded-md px-1.5 py-2 text-xs capitalize transition-colors',
+                            active
+                              ? 'bg-brand-600 text-white'
+                              : 'text-fg-muted hover:bg-surface-3 hover:text-fg',
+                          )}
+                          onClick={() => pickMonth(pickerYear, i)}
+                        >
+                          {name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm mt-2 w-full"
+                    onClick={() => {
+                      setAnchor(today)
+                      setMonthPickerOpen(false)
+                    }}
+                  >
+                    Сьогодні
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        <Segmented
-          value={kind}
-          onChange={setKind}
-          options={[
-            ['week', 'Тиждень'],
-            ['2weeks', '2 тижні'],
-            ['month', 'Місяць'],
-          ]}
-        />
-
-        {isDutyJournal && (
-          <Segmented
-            value={rowsMode}
-            onChange={setRowsMode}
-            options={[
-              ['people', 'Рядки: люди'],
-              ['duties', 'Рядки: наряди'],
-            ]}
-          />
-        )}
-
-        {effectiveRowsMode === 'people' && (
-          <>
-            {filterGroups.length > 0 && !effectiveGroup && (
-              <select className="input w-36" value={group} onChange={(e) => setGroup(e.target.value)}>
-                <option value="">Усі групи</option>
-                {filterGroups.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </select>
-            )}
-            {effectiveGroup && (
-              <span className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg-muted">
-                Група: {effectiveGroup}
-              </span>
-            )}
-            <input
-              className="input w-44"
-              placeholder="Пошук за ПІБ"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <Segmented
+              value={kind}
+              onChange={setKind}
+              options={[
+                ['week', 'Тижд.'],
+                ['2weeks', '2 тиж.'],
+                ['month', 'Міс.'],
+              ]}
             />
-          </>
-        )}
-        <Toggle
-          checked={onlyBusy}
-          onChange={setOnlyBusy}
-          label={isDutyJournal ? 'Тільки з нарядами' : 'Тільки із записами'}
-        />
+            {isDutyJournal && (
+              <Segmented
+                value={rowsMode}
+                onChange={setRowsMode}
+                options={[
+                  ['people', 'Люди'],
+                  ['duties', 'Наряди'],
+                ]}
+              />
+            )}
+          </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-fg-faint">
-            {rangeAssignments.length} записів
-            {showPoints ? ` · ${rangeAssignments.reduce((s, a) => s + a.points, 0)} б.` : ''}
-          </span>
-          {!readOnly && isDutyJournal && (
-            <button
-              className="btn-secondary btn-sm"
-              onClick={() => exportJournalXLSX(rangeAssignments, people, dutyTypes)}
-              disabled={rangeAssignments.length === 0}
-            >
-              <Download size={14} /> Excel
-            </button>
-          )}
-          {!readOnly && isDutyJournal && (
-            <button className="btn-primary btn-sm" onClick={() => setManual({})}>
-              <Plus size={14} /> Записати
-            </button>
-          )}
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            {effectiveRowsMode === 'people' && (
+              <>
+                {filterGroups.length > 0 && !effectiveGroup && (
+                  <select className="input w-full sm:w-36" value={group} onChange={(e) => setGroup(e.target.value)}>
+                    <option value="">Усі групи</option>
+                    {filterGroups.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {effectiveGroup && (
+                  <span className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-fg-muted sm:text-sm">
+                    {effectiveGroup}
+                  </span>
+                )}
+                <input
+                  className="input w-full sm:w-44"
+                  placeholder="Пошук за ПІБ"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </>
+            )}
+            <Toggle
+              checked={onlyBusy}
+              onChange={setOnlyBusy}
+              label={isDutyJournal ? 'З нарядами' : 'З записами'}
+            />
+            <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+              <span className="text-xs text-fg-faint sm:text-sm">
+                {rangeAssignments.length} зап.
+                {showPoints ? ` · ${rangeAssignments.reduce((s, a) => s + a.points, 0)} б.` : ''}
+              </span>
+              {!readOnly && isDutyJournal && (
+                <button
+                  className="btn-secondary btn-sm"
+                  onClick={() => exportJournalXLSX(rangeAssignments, people, dutyTypes)}
+                  disabled={rangeAssignments.length === 0}
+                >
+                  <Download size={14} /> <span className="hidden sm:inline">Excel</span>
+                </button>
+              )}
+              {!readOnly && isDutyJournal && (
+                <button className="btn-primary btn-sm flex-1 sm:flex-none" onClick={() => setManual({})}>
+                  <Plus size={14} /> Записати
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -651,7 +664,7 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       )}
 
-      <div className="flex w-full items-stretch gap-2 px-2 py-2">
+      <div className="flex w-full items-stretch gap-1 px-1 py-2 sm:gap-2 sm:px-2">
         <button
           type="button"
           className="hidden w-10 shrink-0 items-center justify-center self-stretch rounded-lg border border-border bg-surface text-fg-muted transition-colors hover:bg-surface-3 hover:text-fg sm:flex"
@@ -665,7 +678,7 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
         <div
           key={animKey}
           className={clsx(
-            'min-w-0 flex-1 rounded-lg border border-border bg-surface',
+            'table-scroll max-h-[calc(100dvh-11rem)] min-w-0 flex-1 rounded-lg border border-border bg-surface md:max-h-[calc(100vh-12rem)]',
             slideDir === 1 && 'journal-slide-next',
             slideDir === -1 && 'journal-slide-prev',
           )}
@@ -673,7 +686,7 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
           <table className="w-full border-separate border-spacing-0 text-sm">
               <thead>
                 <tr>
-                  <th className="sticky top-28 left-0 z-30 min-w-56 border-r border-b border-border bg-surface-2 px-3 py-2 text-left text-xs font-semibold tracking-wide text-fg-muted uppercase">
+                  <th className="sticky top-0 left-0 z-30 min-w-24 max-w-[38vw] border-r border-b border-border bg-surface-2 px-1.5 py-2 text-left text-[10px] font-semibold tracking-wide text-fg-muted uppercase sm:min-w-40 sm:max-w-none sm:px-3 sm:text-xs md:min-w-56">
                     {effectiveRowsMode === 'people' ? 'ПІБ' : 'Наряд'}
                   </th>
                 {dates.map((d, di) => {
@@ -685,7 +698,7 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
                       key={d}
                       style={{ minWidth: dayColWidth(d), width: dayColWidth(d) }}
                       className={clsx(
-                        'sticky top-28 z-20 border-b border-l border-border/60 px-0.5 py-1.5 text-center text-xs font-medium select-none',
+                        'sticky top-0 z-20 border-b border-l border-border/60 px-0.5 py-1.5 text-center text-[10px] font-medium select-none sm:text-xs',
                         myroDay && !isToday && 'bg-tint-sky/25 text-tint-sky',
                         isToday
                           ? 'bg-brand-600/25 text-tint-brand'
@@ -696,15 +709,16 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
                       title={myroDay ? `${formatHuman(d)} · Миропіль` : formatHuman(d)}
                     >
                       <div className="leading-tight">{weekdayShort(d)}</div>
-                      <div className={clsx('text-sm leading-tight tabular-nums', isToday && 'font-bold')}>
+                      <div className={clsx('text-xs leading-tight tabular-nums sm:text-sm', isToday && 'font-bold')}>
                         {dayOfMonth(d)}
                       </div>
                       {myroDay && <div className="text-[9px] font-semibold tracking-wide text-tint-sky">М</div>}
                     </th>
                   )
                 })}
-                <th className="sticky top-28 z-20 min-w-20 border-b border-l border-border bg-surface-2 px-2 py-1.5 text-center text-xs font-semibold tracking-wide text-fg-muted uppercase">
-                  Разом
+                <th className="sticky top-0 z-20 min-w-12 border-b border-l border-border bg-surface-2 px-1 py-1.5 text-center text-[10px] font-semibold tracking-wide text-fg-muted uppercase sm:min-w-20 sm:px-2 sm:text-xs">
+                  <span className="sm:hidden">Σ</span>
+                  <span className="hidden sm:inline">Разом</span>
                 </th>
               </tr>
             </thead>
@@ -789,7 +803,7 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
             </tbody>
             <tfoot>
               <tr>
-                <td className="sticky bottom-0 left-0 z-30 border-t border-r border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg-muted">
+                <td className="sticky bottom-0 left-0 z-30 border-t border-r border-border bg-surface-2 px-1.5 py-1.5 text-[10px] font-medium text-fg-muted sm:px-3 sm:text-xs">
                   Σ
                 </td>
                 {dates.map((d) => {
@@ -871,8 +885,8 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
         />
       )}
       {!readOnly && selectedCells.size > 0 && effectiveRowsMode === 'people' && (
-        <div className="fixed bottom-4 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 shadow-xl shadow-black/40">
-          <span className="text-sm text-fg">
+        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] left-1/2 z-[60] flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-1.5 rounded-lg border border-border bg-surface px-2 py-2 shadow-xl shadow-black/40 sm:bottom-4 sm:gap-2 sm:px-3 md:bottom-4">
+          <span className="shrink-0 text-xs text-fg sm:text-sm">
             Виділено: <b>{selectedCells.size}</b>
           </span>
           <span className="hidden text-xs text-fg-faint sm:inline">
@@ -895,7 +909,7 @@ export function SchedulePage({ readOnly = false }: { readOnly?: boolean }) {
             title="Видалити призначення (Backspace)"
           >
             <Trash2 size={14} />
-            Видалити
+            <span className="hidden sm:inline">Видалити</span>
           </button>
           <button type="button" className="btn-ghost btn-sm" onClick={clearSelection} title="Зняти виділення">
             <X size={14} />
@@ -1136,14 +1150,16 @@ const PersonRow = memo(function PersonRow({
     <tr className="group/row">
       <td
         className={clsx(
-          'sticky left-0 z-10 border-r border-b border-border/60 bg-surface px-3 py-1 group-hover/row:bg-surface-2',
+          'sticky left-0 z-10 max-w-[38vw] border-r border-b border-border/60 bg-surface px-1.5 py-1 group-hover/row:bg-surface-2 sm:max-w-none sm:px-3',
           inactive && 'opacity-60',
         )}
       >
-        <div className="flex items-center gap-2">
-          <span className="truncate font-medium">{person.name}</span>
-          <PersonTags tags={person.tags} />
-          {person.group && <span className="ml-auto shrink-0 text-[10px] text-fg-faint">{person.group}</span>}
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <span className="truncate text-xs font-medium sm:text-sm">{person.name}</span>
+          <span className="hidden sm:inline-flex">
+            <PersonTags tags={person.tags} />
+          </span>
+          {person.group && <span className="ml-auto hidden shrink-0 text-[10px] text-fg-faint sm:inline">{person.group}</span>}
         </div>
       </td>
       {dayCells}
@@ -1246,14 +1262,16 @@ const NotePersonRow = memo(function NotePersonRow({
     <tr className="group/row">
       <td
         className={clsx(
-          'sticky left-0 z-10 border-r border-b border-border/60 bg-surface px-3 py-1 group-hover/row:bg-surface-2',
+          'sticky left-0 z-10 max-w-[38vw] border-r border-b border-border/60 bg-surface px-1.5 py-1 group-hover/row:bg-surface-2 sm:max-w-none sm:px-3',
           inactive && 'opacity-60',
         )}
       >
-        <div className="flex items-center gap-2">
-          <span className="truncate font-medium">{person.name}</span>
-          <PersonTags tags={person.tags} />
-          {person.group && <span className="ml-auto shrink-0 text-[10px] text-fg-faint">{person.group}</span>}
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <span className="truncate text-xs font-medium sm:text-sm">{person.name}</span>
+          <span className="hidden sm:inline-flex">
+            <PersonTags tags={person.tags} />
+          </span>
+          {person.group && <span className="ml-auto hidden shrink-0 text-[10px] text-fg-faint sm:inline">{person.group}</span>}
         </div>
       </td>
       {dates.map((d) => {
@@ -1361,10 +1379,10 @@ const DutyRow = memo(function DutyRow({
   const removeAssignment = useStore((s) => s.removeAssignment)
   return (
     <tr className="group/row">
-      <td className="sticky left-0 z-10 border-r border-b border-border/60 bg-surface px-3 py-1 group-hover/row:bg-surface-2">
-        <div className="flex items-center gap-2">
+      <td className="sticky left-0 z-10 max-w-[38vw] border-r border-b border-border/60 bg-surface px-1.5 py-1 group-hover/row:bg-surface-2 sm:max-w-none sm:px-3">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
           <DutyBadge duty={duty} />
-          <span className="ml-auto text-[10px] text-fg-faint">
+          <span className="ml-auto hidden shrink-0 text-[10px] text-fg-faint sm:inline">
             {duty.points} б. · {effectiveSlots(duty)} ос.
             {(duty.variants?.length ?? 0) > 0 ? ` · ${duty.variants.length} підп.` : ''}
           </span>
