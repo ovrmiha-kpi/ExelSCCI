@@ -91,10 +91,20 @@ export function variantPathLabel(
   variants: DutyVariant[] | undefined,
   variantId?: string | null,
 ): string {
-  if (!variantId) return ''
-  const walk = (list: DutyVariant[], trail: string[]): string[] | null => {
+  return variantPath(variants, variantId)
+    .map((v) => v.short || v.name)
+    .join(' › ')
+}
+
+/** Ланцюжок підпунктів від кореня до листа. */
+export function variantPath(
+  variants: DutyVariant[] | undefined,
+  variantId?: string | null,
+): DutyVariant[] {
+  if (!variantId) return []
+  const walk = (list: DutyVariant[], trail: DutyVariant[]): DutyVariant[] | null => {
     for (const v of list) {
-      const next = [...trail, v.short || v.name]
+      const next = [...trail, v]
       if (v.id === variantId) return next
       if (v.children?.length) {
         const hit = walk(v.children, next)
@@ -103,7 +113,7 @@ export function variantPathLabel(
     }
     return null
   }
-  return (walk(variants ?? [], []) ?? []).join(' › ')
+  return walk(variants ?? [], []) ?? []
 }
 
 /** Старий шаблонний «підпункт цілодобова» — більше не потрібен (є прапорець на виді). */

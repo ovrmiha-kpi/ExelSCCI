@@ -534,11 +534,18 @@ export function planAssignments(data: AppData, req: PlanRequest, stats?: PersonS
 
       const chosen = pool[0]
       const rest = restBefore(chosen, date)
-      const vName = variantId ? findVariant(duty, variantId)?.name : null
+      const vLabel = variantId
+        ? (() => {
+            const v = findVariant(duty, variantId)
+            return v ? v.short || v.name : null
+          })()
+        : null
+      const dutyLabel = duty.short || duty.name
       const parts: string[] = duty.isMainDuty
-        ? [`${chosen.countByDuty[duty.id] ?? 0}× ${duty.short || duty.name}`]
+        ? [`${chosen.countByDuty[duty.id] ?? 0}× ${dutyLabel}`]
         : [`${chosen.points} б.`, `${chosen.totalCount} призн.`, `№${chosen.groupNo}`]
-      if (vName) parts.push(vName)
+      if (vLabel) parts.unshift(`${dutyLabel}/${vLabel}`)
+      else if (!duty.isMainDuty) parts.unshift(dutyLabel)
       if (spanDays > 1) parts.push(`${spanDays} дн.`)
       if (rest === null) parts.push('ще не ходив')
       if (relaxed) parts.push('⚠ порушено глобальну перерву')

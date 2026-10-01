@@ -12,7 +12,7 @@ import {
   rankCandidates,
   type Proposal,
 } from '../lib/autoAssign'
-import type { AppData, PersonTag } from '../types'
+import type { AppData, DutyType, DutyVariant, PersonTag } from '../types'
 import {
   PERSON_TAG_META,
   TAG_FILTER_CHIPS,
@@ -521,31 +521,24 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                         onChange={(e) => setSlots((s) => ({ ...s, [d.id]: Number(e.target.value) }))}
                       />
                     </div>
-                    {on && leafVariants(d.variants).length > 0 && (
-                      <div className="flex flex-col gap-1 pl-7">
-                        {leafVariants(d.variants).map((v) => (
-                          <div key={v.id} className="flex items-center gap-2">
-                            <span className="min-w-0 flex-1 truncate text-xs text-fg-muted">
-                              {v.short || v.name}
-                            </span>
-                            <input
-                              type="number"
-                              min={0}
-                              className="input w-14 shrink-0 py-0.5 text-center text-xs"
-                              value={variantSlotsFor(d.id, v.id, v.defaultSlots ?? 1)}
-                              title={`Осіб на ${v.short || v.name}`}
-                              onChange={(e) => {
-                                const key = variantSlotKey(d.id, v.id)
-                                const n = Number(e.target.value)
-                                setVariantSlotsRaw((prev) => {
-                                  const next = { ...prev, [key]: n }
-                                  saveUiPrefs({ assignVariantSlots: next }, effectiveGroup)
-                                  return next
-                                })
-                              }}
-                            />
-                          </div>
-                        ))}
+                    {on && (d.variants?.length ?? 0) > 0 && (
+                      <div className="pl-7">
+                        <VariantSlotsTree
+                          variants={d.variants}
+                          depth={0}
+                          disabled={!on}
+                          slotsFor={(variantId, fallback) =>
+                            variantSlotsFor(d.id, variantId, fallback)
+                          }
+                          onChangeSlots={(variantId, n) => {
+                            const key = variantSlotKey(d.id, variantId)
+                            setVariantSlotsRaw((prev) => {
+                              const next = { ...prev, [key]: n }
+                              saveUiPrefs({ assignVariantSlots: next }, effectiveGroup)
+                              return next
+                            })
+                          }}
+                        />
                       </div>
                     )}
                     <div className="flex flex-wrap items-center gap-1 pl-7">
@@ -749,73 +742,68 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
               </div>
             )}
 
-            {[...byDate.entries()].map(([date, list]) => (
-              <div key={date} className="card overflow-hidden">
-                <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2">
-                  <h3 className="text-sm font-semibold text-fg capitalize">{formatHuman(date)}</h3>
-                  <span className="text-xs text-fg-muted">
-                    {list.filter((p) => p.personId).length}/{list.length} місць заповнено
-                  </span>
-                </div>
-                <div>
-                  {list.map((p) => {
-                    const duty = dutyById.get(p.dutyTypeId)
-                    const cands = candidatesFor(date, p.personId, p.dutyTypeId)
-                    return (
-                      <div
-                        key={p.key}
-                        className={clsx(
-                          'flex flex-wrap items-center gap-2 border-b border-border/60 px-4 py-2 last:border-b-0 sm:flex-nowrap',
-                          !p.personId && 'bg-tint-red/10',
-                        )}
-                      >
-                        <div className="w-40 shrink-0">
-                          <DutyBadge duty={duty} />
-                          {p.variantId && duty && (
-                            <span className="mt-0.5 block truncate text-[10px] text-fg-faint">
-                              {duty.variants?.find((v) => v.id === p.variantId)?.name}
+            {[...byDate.entries()].map(([date, list]) => {
+              // Групуємо за видом наряду, далі малюємо дерево підпунктів.
+              const byDuty = new Map<string, typeof list>()
+              for (const p of list) {
+                byDuty.set(p.dutyTypeId, [...(byDuty.get(p.dutyTypeId) ?? []), p])
+              }
+              return (
+                <div key={date} className="card overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2">
+                    <h3 className="text-sm font-semibold text-fg capitalize">{formatHuman(date)}</h3>
+                    <span className="text-xs text-fg-muted">
+                      {list.filter((p) => p.personId).length}/{list.length} місць заповнено
+                    </span>
+                  </div>
+                  <div>
+                    {[...byDuty.entries()].map(([dutyId, dutyList]) => {
+                      const duty = dutyById.get(dutyId)
+                      const filled = dutyList.filter((p) => p.personId).length
+                      const itemsByVariant = new Map<string, typeof dutyList>()
+                      const noVariant: typeof dutyList = []
+                      for (const p of dutyList) {
+                        if (!p.variantId) noVariant.push(p)
+                        else itemsByVariant.set(p.variantId, [...(itemsByVariant.get(p.variantId) ?? []), p])
+                      }
+                      return (
+                        <div key={dutyId} className="border-b border-border last:border-b-0">
+                          <div className="flex items-center gap-2 bg-surface-2 px-4 py-2">
+                            <DutyBadge duty={duty} short />
+                            <span className="text-[10px] text-fg-faint">
+                              {filled}/{dutyList.length}
                             </span>
+                          </div>
+                          {noVariant.length > 0 && (
+                            <ProposalSlotRows
+                              date={date}
+                              duty={duty}
+                              items={noVariant}
+                              depth={1}
+                              candidatesFor={candidatesFor}
+                              onSetPerson={setPerson}
+                              onRemove={removeProposal}
+                            />
                           )}
+                          {duty && (duty.variants?.length ?? 0) > 0 ? (
+                            <ProposalVariantTree
+                              date={date}
+                              duty={duty}
+                              variants={duty.variants}
+                              depth={1}
+                              itemsByVariant={itemsByVariant}
+                              candidatesFor={candidatesFor}
+                              onSetPerson={setPerson}
+                              onRemove={removeProposal}
+                            />
+                          ) : null}
                         </div>
-                        <select
-                          className={clsx('input min-w-48 flex-1', !p.personId && 'border-tint-red')}
-                          value={p.personId ?? ''}
-                          onChange={(e) => setPerson(p.key, e.target.value || null)}
-                        >
-                          <option value="">— не призначено —</option>
-                          {cands.map((c) => (
-                            <option
-                              key={c.person.id}
-                              value={c.person.id}
-                              disabled={!c.available && c.person.id !== p.personId}
-                            >
-                              {c.person.name}
-                              {(c.person.tags ?? []).map((t) => ` (${PERSON_TAG_META[t]?.short ?? t})`).join('')}
-                              {' · '}
-                              {duty?.isMainDuty
-                                ? `${c.dutyCount}× ${duty.short || duty.name}`
-                                : `${c.points} б. · ${c.totalCount} призн. · №${c.groupNo}`}
-                              {c.busy && c.person.id !== p.personId ? ' · ЗАЙНЯТИЙ' : ''}
-                              {!c.available ? ' · не в наявності' : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="w-56 shrink-0 truncate text-xs text-fg-muted" title={p.note}>
-                          {p.note}
-                        </span>
-                        <button
-                          className="btn-ghost btn-sm text-tint-red"
-                          title="Прибрати місце з плану"
-                          onClick={() => removeProposal(p.key)}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             <div className="card flex flex-wrap items-center gap-2 p-3">
               <button className="btn-secondary" onClick={buildPlan}>
@@ -843,6 +831,238 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Дерево підпунктів для кількості місць (з відступами). */
+function VariantSlotsTree({
+  variants,
+  depth,
+  disabled,
+  slotsFor,
+  onChangeSlots,
+}: {
+  variants: DutyVariant[]
+  depth: number
+  disabled?: boolean
+  slotsFor: (variantId: string, fallback: number) => number
+  onChangeSlots: (variantId: string, n: number) => void
+}) {
+  return (
+    <div className={clsx('flex flex-col gap-0.5', depth > 0 && 'ml-3 border-l border-border/70 pl-2')}>
+      {variants.map((v) => {
+        const kids = v.children ?? []
+        const hasChildren = kids.length > 0
+        const leafSum = hasChildren
+          ? leafVariants([v]).reduce(
+              (s, leaf) => s + (Number(slotsFor(leaf.id, leaf.defaultSlots ?? 1)) || 0),
+              0,
+            )
+          : 0
+        return (
+          <div key={v.id}>
+            <div className="flex items-center gap-2 py-0.5">
+              <span
+                className={clsx(
+                  'min-w-0 flex-1 truncate text-xs',
+                  hasChildren ? 'font-medium text-fg' : 'text-fg-muted',
+                )}
+                title={v.name}
+              >
+                {v.short || v.name}
+              </span>
+              {hasChildren ? (
+                <span
+                  className="w-14 shrink-0 text-center text-[10px] tabular-nums text-fg-faint"
+                  title="Сума місць у вкладених"
+                >
+                  Σ{leafSum}
+                </span>
+              ) : (
+                <input
+                  type="number"
+                  min={0}
+                  disabled={disabled}
+                  className="input w-14 shrink-0 py-0.5 text-center text-xs"
+                  value={slotsFor(v.id, v.defaultSlots ?? 1)}
+                  title={`Осіб на ${v.short || v.name}`}
+                  onChange={(e) => onChangeSlots(v.id, Number(e.target.value))}
+                />
+              )}
+            </div>
+            {hasChildren && (
+              <VariantSlotsTree
+                variants={kids}
+                depth={depth + 1}
+                disabled={disabled}
+                slotsFor={slotsFor}
+                onChangeSlots={onChangeSlots}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+type ProposalItem = Proposal
+
+function ProposalSlotRows({
+  date,
+  duty,
+  items,
+  depth,
+  candidatesFor,
+  onSetPerson,
+  onRemove,
+}: {
+  date: string
+  duty: DutyType | undefined
+  items: ProposalItem[]
+  depth: number
+  candidatesFor: (
+    date: string,
+    currentPersonId: string | null,
+    dutyTypeId: string,
+  ) => ReturnType<typeof rankCandidates>
+  onSetPerson: (key: string, personId: string | null) => void
+  onRemove: (key: string) => void
+}) {
+  return (
+    <>
+      {items.map((p) => {
+        const cands = candidatesFor(date, p.personId, p.dutyTypeId)
+        return (
+          <div
+            key={p.key}
+            className={clsx(
+              'flex flex-wrap items-center gap-2 border-b border-border/30 py-1.5 last:border-b-0 sm:flex-nowrap',
+              !p.personId && 'bg-tint-red/10',
+            )}
+            style={{ paddingLeft: `${0.75 + depth * 0.75}rem`, paddingRight: '1rem' }}
+          >
+            <select
+              className={clsx('input min-w-48 flex-1', !p.personId && 'border-tint-red')}
+              value={p.personId ?? ''}
+              onChange={(e) => onSetPerson(p.key, e.target.value || null)}
+            >
+              <option value="">— не призначено —</option>
+              {cands.map((c) => (
+                <option
+                  key={c.person.id}
+                  value={c.person.id}
+                  disabled={!c.available && c.person.id !== p.personId}
+                >
+                  {c.person.name}
+                  {(c.person.tags ?? []).map((t) => ` (${PERSON_TAG_META[t]?.short ?? t})`).join('')}
+                  {' · '}
+                  {duty?.isMainDuty
+                    ? `${c.dutyCount}×`
+                    : `${c.points} б. · ${c.totalCount} призн. · №${c.groupNo}`}
+                  {c.busy && c.person.id !== p.personId ? ' · ЗАЙНЯТИЙ' : ''}
+                  {!c.available ? ' · не в наявності' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              className="btn-ghost btn-sm text-tint-red"
+              title="Прибрати місце з плану"
+              onClick={() => onRemove(p.key)}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+/** Дерево результатів плану: ПГД → Г12 → СХ → люди. */
+function ProposalVariantTree({
+  date,
+  duty,
+  variants,
+  depth,
+  itemsByVariant,
+  candidatesFor,
+  onSetPerson,
+  onRemove,
+}: {
+  date: string
+  duty: DutyType
+  variants: DutyVariant[]
+  depth: number
+  itemsByVariant: Map<string, ProposalItem[]>
+  candidatesFor: (
+    date: string,
+    currentPersonId: string | null,
+    dutyTypeId: string,
+  ) => ReturnType<typeof rankCandidates>
+  onSetPerson: (key: string, personId: string | null) => void
+  onRemove: (key: string) => void
+}) {
+  return (
+    <div>
+      {variants.map((v) => {
+        const kids = v.children ?? []
+        const hasChildren = kids.length > 0
+        const leafIds = hasChildren ? leafVariants([v]).map((x) => x.id) : [v.id]
+        const leafItems = leafIds.flatMap((id) => itemsByVariant.get(id) ?? [])
+        if (leafItems.length === 0 && !hasChildren) return null
+        // Пропускаємо гілку без жодного місця в плані
+        if (leafItems.length === 0) return null
+        const filled = leafItems.filter((p) => p.personId).length
+        const direct = itemsByVariant.get(v.id) ?? []
+        return (
+          <div key={v.id}>
+            <div
+              className="flex items-center gap-2 border-b border-border/40 bg-surface/40 py-1.5"
+              style={{ paddingLeft: `${0.75 + depth * 0.75}rem`, paddingRight: '1rem' }}
+            >
+              <span
+                className={clsx(
+                  'badge border text-xs',
+                  hasChildren
+                    ? 'border-brand-600/40 bg-brand-600/15 text-tint-brand'
+                    : 'border-border bg-surface-3 text-fg',
+                )}
+                title={v.name}
+              >
+                {v.short || v.name}
+              </span>
+              <span className="text-[10px] text-fg-faint">
+                {filled}/{leafItems.length}
+              </span>
+            </div>
+            {!hasChildren && (
+              <ProposalSlotRows
+                date={date}
+                duty={duty}
+                items={direct}
+                depth={depth + 1}
+                candidatesFor={candidatesFor}
+                onSetPerson={onSetPerson}
+                onRemove={onRemove}
+              />
+            )}
+            {hasChildren && (
+              <ProposalVariantTree
+                date={date}
+                duty={duty}
+                variants={kids}
+                depth={depth + 1}
+                itemsByVariant={itemsByVariant}
+                candidatesFor={candidatesFor}
+                onSetPerson={onSetPerson}
+                onRemove={onRemove}
+              />
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

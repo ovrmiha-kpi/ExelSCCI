@@ -1025,17 +1025,11 @@ const PersonRow = memo(function PersonRow({
       while (di + len < dates.length && mask[di + len]) len++
       if (myropilLeader) {
         const spanDates = dates.slice(di, di + len)
-        const minW = spanDates.reduce((s, x) => {
-          const w = dayColWidth(x)
-          const n = Number.parseFloat(w)
-          return s + (Number.isFinite(n) ? n : 2.6)
-        }, 0)
         dayCells.push(
           <td
             key={`myro-${d}`}
             colSpan={len}
             rowSpan={myropilGroupSize ?? 1}
-            style={{ minWidth: `${minW}rem`, width: `${minW}rem` }}
             title={`Миропіль · ${person.group || 'група'} · ${spanDates[0]}${len > 1 ? ` — ${spanDates[len - 1]}` : ''}`}
             className="myro-cell relative overflow-hidden border-b border-l border-tint-sky/50 p-0"
           >
@@ -1082,12 +1076,7 @@ const PersonRow = memo(function PersonRow({
       }
     }
 
-    const minW = dates.slice(di, di + colSpan).reduce((s, x) => {
-      const w = dayColWidth(x)
-      const n = Number.parseFloat(w)
-      return s + (Number.isFinite(n) ? n : 2.6)
-    }, 0)
-
+    // Ширину колонок задає thead; colspan без суми minWidth — інакше браузер роздуває дні.
     const selected = selectedKeys?.has(cellKey({ personId: person.id, date: d })) ?? false
     dayCells.push(
       <td
@@ -1096,7 +1085,11 @@ const PersonRow = memo(function PersonRow({
         onMouseDown={onCellMouseDown ? (e) => onCellMouseDown(d, e) : undefined}
         onMouseEnter={onCellMouseEnter ? () => onCellMouseEnter(d) : undefined}
         onClick={onCellClick ? (e) => onCellClick(d, e) : undefined}
-        style={{ minWidth: `${minW}rem`, width: `${minW}rem` }}
+        style={
+          colSpan > 1
+            ? undefined
+            : { minWidth: dayColWidth(d), width: dayColWidth(d) }
+        }
         className={clsx(
           'relative select-none border-b border-l border-border/40 p-0 transition-colors',
           (onCellMouseDown || onCellClick) && 'cursor-cell',
@@ -1403,16 +1396,15 @@ const DutyRow = memo(function DutyRow({
           }
           const spanCover = starting.reduce((m, a) => Math.max(m, assignmentDaysLeftFrom(a, d)), 1)
           const colSpan = Math.min(spanCover, dates.length - di)
-          const minW = dates.slice(di, di + colSpan).reduce((s, x) => {
-            const w = dayColWidth(x)
-            const n = Number.parseFloat(w)
-            return s + (Number.isFinite(n) ? n : 2.6)
-          }, 0)
           dayCells.push(
             <td
               key={d}
               colSpan={colSpan > 1 ? colSpan : undefined}
-              style={{ minWidth: `${minW}rem`, width: `${minW}rem` }}
+              style={
+                colSpan > 1
+                  ? undefined
+                  : { minWidth: dayColWidth(d), width: dayColWidth(d) }
+              }
               className={clsx(
                 'border-b border-l border-border/40 p-0',
                 isToday && 'bg-brand-600/10',
@@ -1513,6 +1505,14 @@ function CellEditor({
   const [noteDraft, setNoteDraft] = useState('')
   const [pointsDraft, setPointsDraft] = useState('1')
   const [conductKind, setConductKind] = useState<ConductKind>('penalty')
+  /** Чернетка призначення: змінні лише для цього запису, не шаблону наряду. */
+  const [draft, setDraft] = useState<{
+    dutyId: string
+    variantId: string | null
+    spanDays: string
+    points: string
+    note: string
+  } | null>(null)
 
   const isDuties = normalizeJournalId(journalId) === 'duties'
   const isMyropil = normalizeJournalId(journalId) === 'myropil'
@@ -1527,19 +1527,33 @@ function CellEditor({
 
   if (!person) return null
 
-  const add = (duty: DutyType, variantId: string | null = null) => {
-    const spanDays = Math.max(1, Math.floor(Number(duty.durationDays) || 1))
+  const beginDraft = (duty: DutyType, variantId: string | null = null) => {
+    const base = dutyBasePoints(duty, variantId)
+    setDraft({
+      dutyId: duty.id,
+      variantId,
+      spanDays: String(Math.max(1, Math.floor(Number(duty.durationDays) || 1))),
+      points: String(dutyPointsForDate(base, date, weekendMultiplier)),
+      note: '',
+    })
+  }
+
+  const commitDraft = () => {
+    if (!draft) return
+    const duty = dutyById.get(draft.dutyId)
+    if (!duty) return
     addAssignment({
       journalId: isMyropil ? 'myropil' : 'duties',
       date,
       dutyTypeId: duty.id,
       personId,
-      variantId,
-      points: dutyPointsForDate(dutyBasePoints(duty, variantId), date, weekendMultiplier),
-      note: '',
+      variantId: draft.variantId,
+      points: Number(draft.points) || 0,
+      note: draft.note.trim(),
       source: 'manual',
-      spanDays,
+      spanDays: Math.max(1, Math.floor(Number(draft.spanDays) || 1)),
     })
+    setDraft(null)
   }
 
   const addNote = () => {
@@ -1576,6 +1590,9 @@ function CellEditor({
     setNoteDraft('')
   }
 
+  const draftDuty = draft ? dutyById.get(draft.dutyId) : undefined
+  const draftLeaves = draftDuty ? leafVariants(draftDuty.variants) : []
+
   return (
     <Modal
       open
@@ -1599,7 +1616,6 @@ function CellEditor({
           <button
             className="btn-primary"
             onClick={() => {
-              // Зберігаємо чернетку лише якщо є причина або змінені бали (не «просто зайшов і вийшов»).
               if (!isDutyJournal) {
                 const text = noteDraft.trim()
                 const pts = Math.abs(Number(pointsDraft) || 0)
@@ -1704,32 +1720,77 @@ function CellEditor({
               }
               const duty = dutyById.get(a.dutyTypeId)
               const v = findVariant(duty, a.variantId)
+              const leaves = duty ? leafVariants(duty.variants) : []
               return (
-                <div key={a.id} className="flex items-center gap-2 border border-border bg-surface-2 px-2 py-1.5">
-                  <DutyBadge duty={duty} short />
-                  {v && <span className="badge bg-surface-3 text-fg-muted">{v.short || v.name}</span>}
+                <div
+                  key={a.id}
+                  className="flex flex-col gap-1.5 rounded-md border border-border bg-surface-2 px-2 py-2"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <DutyBadge duty={duty} short />
+                    {leaves.length > 0 ? (
+                      <select
+                        className="input w-28 py-0.5 text-xs"
+                        value={a.variantId ?? ''}
+                        title="Підпункт лише для цього запису"
+                        onChange={(e) => {
+                          const nextId = e.target.value || null
+                          const nextPts = duty
+                            ? dutyPointsForDate(dutyBasePoints(duty, nextId), a.date, weekendMultiplier)
+                            : a.points
+                          updateAssignment(a.id, { variantId: nextId, points: nextPts })
+                        }}
+                      >
+                        {leaves.map((lv) => (
+                          <option key={lv.id} value={lv.id}>
+                            {lv.short || lv.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      v && <span className="badge bg-surface-3 text-fg-muted">{v.short || v.name}</span>
+                    )}
+                    <label className="flex items-center gap-1 text-[10px] text-fg-faint">
+                      дн.
+                      <input
+                        type="number"
+                        min={1}
+                        className="input w-14 py-0.5 text-center text-xs"
+                        value={a.spanDays ?? 1}
+                        title="Тривалість лише цього призначення"
+                        onChange={(e) =>
+                          updateAssignment(a.id, {
+                            spanDays: Math.max(1, Math.floor(Number(e.target.value) || 1)),
+                          })
+                        }
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 text-[10px] text-fg-faint">
+                      б.
+                      <input
+                        type="number"
+                        step="0.5"
+                        className="input w-16 py-0.5 text-center text-xs"
+                        value={a.points}
+                        title="Бали лише цього призначення"
+                        onChange={(e) => updateAssignment(a.id, { points: Number(e.target.value) || 0 })}
+                      />
+                    </label>
+                    <span className="text-[10px] text-fg-faint">{a.source === 'auto' ? 'авто' : 'вручну'}</span>
+                    <button
+                      className="btn-ghost btn-sm ml-auto text-tint-red"
+                      onClick={() => removeAssignment(a.id)}
+                      title="Видалити"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                   <input
-                    type="number"
-                    step="0.5"
-                    className="input w-16 py-0.5 text-center"
-                    value={a.points}
-                    title="Бали"
-                    onChange={(e) => updateAssignment(a.id, { points: Number(e.target.value) || 0 })}
-                  />
-                  <input
-                    className="input flex-1 py-0.5 text-xs"
-                    placeholder="примітка"
+                    className="input w-full py-0.5 text-xs"
+                    placeholder="примітка (лише цей запис)"
                     value={a.note}
                     onChange={(e) => updateAssignment(a.id, { note: e.target.value })}
                   />
-                  <span className="text-[10px] text-fg-faint">{a.source === 'auto' ? 'авто' : 'вручну'}</span>
-                  <button
-                    className="btn-ghost btn-sm text-tint-red"
-                    onClick={() => removeAssignment(a.id)}
-                    title="Видалити"
-                  >
-                    <Trash2 size={14} />
-                  </button>
                 </div>
               )
             })}
@@ -1737,44 +1798,120 @@ function CellEditor({
         </div>
 
         {isDutyJournal ? (
-          <div>
+          <div className="flex flex-col gap-2">
             <span className="label">Додати наряд</span>
-            <div className="flex flex-col gap-2">
-              {duties.map((d) => {
-                const variants = leafVariants(d.variants)
-                if (variants.length === 0) {
-                  return (
-                    <button
-                      key={d.id}
-                      className="btn-secondary btn-sm w-fit"
-                      onClick={() => add(d)}
-                      title={`${d.name} · ${dutyPointsForDate(d.points, date, weekendMultiplier)} б.`}
+            {draft && draftDuty ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-brand-600/40 bg-brand-600/5 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <DutyBadge duty={draftDuty} short />
+                  {draftLeaves.length > 0 && (
+                    <select
+                      className="input w-32 py-1 text-xs"
+                      value={draft.variantId ?? ''}
+                      onChange={(e) => {
+                        const variantId = e.target.value || null
+                        const base = dutyBasePoints(draftDuty, variantId)
+                        setDraft((d) =>
+                          d
+                            ? {
+                                ...d,
+                                variantId,
+                                points: String(dutyPointsForDate(base, date, weekendMultiplier)),
+                              }
+                            : d,
+                        )
+                      }}
                     >
-                      <span className="h-2.5 w-2.5" style={{ backgroundColor: d.color, borderRadius: 0 }} />
-                      {d.short || d.name}
-                      <span className="text-fg-faint">
-                        {dutyPointsForDate(d.points, date, weekendMultiplier)} б.
-                      </span>
-                    </button>
-                  )
-                }
-                return (
-                  <div key={d.id} className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs font-medium text-fg-muted">{d.short || d.name}:</span>
-                    {variants.map((v) => (
+                      {draftLeaves.map((lv) => (
+                        <option key={lv.id} value={lv.id}>
+                          {lv.short || lv.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <span className="text-[10px] text-fg-faint">лише цей запис</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  <Field label="Днів">
+                    <input
+                      type="number"
+                      min={1}
+                      className="input"
+                      value={draft.spanDays}
+                      onChange={(e) => setDraft((d) => (d ? { ...d, spanDays: e.target.value } : d))}
+                    />
+                  </Field>
+                  <Field label="Бали">
+                    <input
+                      type="number"
+                      step="0.5"
+                      className="input"
+                      value={draftDuty.isMainDuty ? '0' : draft.points}
+                      disabled={Boolean(draftDuty.isMainDuty)}
+                      onChange={(e) => setDraft((d) => (d ? { ...d, points: e.target.value } : d))}
+                    />
+                  </Field>
+                  <Field label="Примітка" className="col-span-2 sm:col-span-1">
+                    <input
+                      className="input"
+                      value={draft.note}
+                      placeholder="опційно"
+                      onChange={(e) => setDraft((d) => (d ? { ...d, note: e.target.value } : d))}
+                    />
+                  </Field>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className="btn-primary btn-sm" onClick={commitDraft}>
+                    Поставити
+                  </button>
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => setDraft(null)}>
+                    Скасувати
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] text-fg-faint">
+                  Оберіть наряд — далі можна змінити дні / бали / підпункт тільки для цього призначення.
+                </p>
+                {duties.map((d) => {
+                  const variants = leafVariants(d.variants)
+                  if (variants.length === 0) {
+                    return (
                       <button
-                        key={v.id}
-                        className="btn-secondary btn-sm"
-                        onClick={() => add(d, v.id)}
-                        title={`${d.name} › ${v.name} · ${v.points} б.`}
+                        key={d.id}
+                        type="button"
+                        className="btn-secondary btn-sm w-fit"
+                        onClick={() => beginDraft(d)}
+                        title={`${d.name} · шаблон ${d.durationDays ?? 1} дн.`}
                       >
-                        {v.short || v.name} · {dutyPointsForDate(v.points, date, weekendMultiplier)} б.
+                        <span className="h-2.5 w-2.5" style={{ backgroundColor: d.color, borderRadius: 0 }} />
+                        {d.short || d.name}
+                        <span className="text-fg-faint">
+                          {dutyPointsForDate(d.points, date, weekendMultiplier)} б. · {d.durationDays ?? 1} дн.
+                        </span>
                       </button>
-                    ))}
-                  </div>
-                )
-              })}
-            </div>
+                    )
+                  }
+                  return (
+                    <div key={d.id} className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-medium text-fg-muted">{d.short || d.name}:</span>
+                      {variants.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => beginDraft(d, v.id)}
+                          title={`${d.name} › ${v.name}`}
+                        >
+                          {v.short || v.name}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         ) : isConduct ? (
           <div className="flex flex-col gap-3">
