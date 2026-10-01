@@ -119,7 +119,7 @@ export function DutyTypesEditor() {
     if (!canEdit || !name.trim()) return
     addDutyType({
       name,
-      short: short || name.slice(0, 3),
+      short: (short || name.slice(0, 3)).slice(0, 8).toUpperCase(),
       points: isMainDuty ? 0 : Number(points),
       defaultSlots: Number(slots),
       allowExtraPerson: false,
@@ -390,7 +390,7 @@ export function DutyTypesEditor() {
                     <input
                       className="input w-20 py-0.5 uppercase"
                       value={d.short}
-                      maxLength={5}
+                      maxLength={8}
                       onChange={(e) => updateDutyType(d.id, { short: e.target.value.toUpperCase() })}
                     />
                   </td>
@@ -410,6 +410,12 @@ export function DutyTypesEditor() {
                       min={1}
                       className="input w-16 py-0.5 text-center"
                       value={d.defaultSlots}
+                      disabled={(leafVariants(d.variants).length > 0)}
+                      title={
+                        leafVariants(d.variants).length > 0
+                          ? 'Осіб задаються в підпунктах'
+                          : 'Осіб за замовч.'
+                      }
                       onChange={(e) =>
                         updateDutyType(d.id, {
                           defaultSlots: Math.max(1, Number(e.target.value) || 1),
@@ -554,7 +560,7 @@ export function DutyTypesEditor() {
           <Field label="Коротко">
             <input
               className="input uppercase"
-              maxLength={5}
+              maxLength={8}
               value={short}
               onChange={(e) => setShort(e.target.value.toUpperCase())}
             />

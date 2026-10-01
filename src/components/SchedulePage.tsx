@@ -31,7 +31,7 @@ import {
   todayISO,
   weekdayShort,
 } from '../lib/dates'
-import { dutyBasePoints, dutyHoverTitle, dutyShortLabel, effectiveSlots, findVariant } from '../lib/defaults'
+import { dutyBasePoints, dutyHoverTitle, dutyShortLabel, effectiveSlots, findVariant, leafVariants } from '../lib/defaults'
 import { exportJournalXLSX } from '../lib/export'
 import { useAssignmentsRange, usePersonDayAssignments } from '../lib/queries'
 import { DutyBadge, EmptyState, Field, Modal, PersonTags, Segmented, Toggle } from './ui'
@@ -1130,8 +1130,10 @@ const PersonRow = memo(function PersonRow({
                     dutyHoverTitle(duty, a.points, a.variantId, a.note)
                   }
                 >
-                  <span className={clsx(v && 'group-hover/chip:hidden')}>{dutyShortLabel(duty)}</span>
-                  {v && <span className="hidden truncate group-hover/chip:inline">{v.short || v.name}</span>}
+                  <span className="truncate">
+                    {dutyShortLabel(duty)}
+                    {v ? `/${v.short || v.name}` : ''}
+                  </span>
                 </span>
               )
             })}
@@ -1526,6 +1528,7 @@ function CellEditor({
   if (!person) return null
 
   const add = (duty: DutyType, variantId: string | null = null) => {
+    const spanDays = Math.max(1, Math.floor(Number(duty.durationDays) || 1))
     addAssignment({
       journalId: isMyropil ? 'myropil' : 'duties',
       date,
@@ -1535,6 +1538,7 @@ function CellEditor({
       points: dutyPointsForDate(dutyBasePoints(duty, variantId), date, weekendMultiplier),
       note: '',
       source: 'manual',
+      spanDays,
     })
   }
 
@@ -1702,7 +1706,7 @@ function CellEditor({
               const v = findVariant(duty, a.variantId)
               return (
                 <div key={a.id} className="flex items-center gap-2 border border-border bg-surface-2 px-2 py-1.5">
-                  <DutyBadge duty={duty} />
+                  <DutyBadge duty={duty} short />
                   {v && <span className="badge bg-surface-3 text-fg-muted">{v.short || v.name}</span>}
                   <input
                     type="number"
@@ -1737,7 +1741,7 @@ function CellEditor({
             <span className="label">Додати наряд</span>
             <div className="flex flex-col gap-2">
               {duties.map((d) => {
-                const variants = d.variants ?? []
+                const variants = leafVariants(d.variants)
                 if (variants.length === 0) {
                   return (
                     <button
@@ -1747,7 +1751,7 @@ function CellEditor({
                       title={`${d.name} · ${dutyPointsForDate(d.points, date, weekendMultiplier)} б.`}
                     >
                       <span className="h-2.5 w-2.5" style={{ backgroundColor: d.color, borderRadius: 0 }} />
-                      {d.name}
+                      {d.short || d.name}
                       <span className="text-fg-faint">
                         {dutyPointsForDate(d.points, date, weekendMultiplier)} б.
                       </span>
@@ -1756,13 +1760,13 @@ function CellEditor({
                 }
                 return (
                   <div key={d.id} className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-fg-muted">{d.name}:</span>
+                    <span className="text-xs font-medium text-fg-muted">{d.short || d.name}:</span>
                     {variants.map((v) => (
                       <button
                         key={v.id}
                         className="btn-secondary btn-sm"
                         onClick={() => add(d, v.id)}
-                        title={`${v.name} · ${v.points} б.`}
+                        title={`${d.name} › ${v.name} · ${v.points} б.`}
                       >
                         {v.short || v.name} · {dutyPointsForDate(v.points, date, weekendMultiplier)} б.
                       </button>

@@ -1,6 +1,7 @@
 import type { ThemeId } from '../types'
 
-export const THEME_STORAGE_KEY = 'dutyrank:theme'
+/** Косметика лише на клієнті (не в групових налаштуваннях сервера). */
+export const THEME_STORAGE_KEY = 'excelcssi:theme'
 export const THEME_IDS: ThemeId[] = ['light', 'dark', 'midnight']
 
 export function isThemeId(v: unknown): v is ThemeId {
@@ -10,7 +11,14 @@ export function isThemeId(v: unknown): v is ThemeId {
 export function readStoredTheme(): ThemeId | null {
   try {
     const v = localStorage.getItem(THEME_STORAGE_KEY)
-    return isThemeId(v) ? v : null
+    if (isThemeId(v)) return v
+    // міграція зі старого ключа
+    const legacy = localStorage.getItem('dutyrank:theme')
+    if (isThemeId(legacy)) {
+      localStorage.setItem(THEME_STORAGE_KEY, legacy)
+      return legacy
+    }
+    return null
   } catch {
     return null
   }

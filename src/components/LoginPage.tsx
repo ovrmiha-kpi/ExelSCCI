@@ -38,7 +38,7 @@ export function LoginPage({ onSuccess }: { onSuccess: (user: SessionUser) => voi
         <div className="flex items-center gap-3">
           <img src="./favicon.svg" alt="" className="h-9 w-9" />
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-fg">ExelSCCI</h1>
+            <h1 className="text-lg font-bold tracking-tight text-fg">ExcelCSSI</h1>
             <p className="text-xs text-fg-muted">
               Вхід{auth.apiMode ? ' · сервер' : auth.authReady ? ' · локально' : ''}
             </p>

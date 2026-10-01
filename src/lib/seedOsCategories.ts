@@ -8,12 +8,14 @@ function v(
   short: string,
   points = 1,
   children?: DutyVariant[],
+  defaultSlots = 1,
 ): DutyVariant {
   return {
     id: uid(),
     name,
     short: short.slice(0, 8),
     points,
+    defaultSlots: Math.max(1, Math.floor(defaultSlots) || 1),
     ...(children && children.length ? { children } : {}),
   }
 }

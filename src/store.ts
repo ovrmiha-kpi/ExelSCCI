@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppData, Assignment, DutyType, Person, PersonStatRow, PersonTag, Settings } from './types'
+import type { AppData, Assignment, DutyType, Person, PersonStatRow, PersonTag, Settings, ThemeId } from './types'
 import { DEFAULT_SETTINGS, normalizeJournalId, normalizePersonStatus, normalizePersonTags } from './types'
 import { normalizeSettings } from './lib/myropil'
 import { uid } from './lib/id'
@@ -28,6 +28,15 @@ import { apiGetBundle, apiPutBundle, assertApiMode, detectApiMode, isApiMode } f
 type PersonInput = Omit<Person, 'id' | 'createdAt'>
 type DutyTypeInput = Omit<DutyType, 'id' | 'order' | 'archived'>
 type AssignmentInput = Omit<Assignment, 'id' | 'createdAt' | 'spanDays'> & { spanDays?: number }
+
+/** Тема — косметика на клієнті; на сервер групи не пишемо. */
+function settingsForServer(s: Settings): Settings {
+  return { ...s, theme: DEFAULT_SETTINGS.theme }
+}
+
+function clientTheme(fallback?: ThemeId): ThemeId {
+  return readStoredTheme() ?? (fallback && isThemeId(fallback) ? fallback : DEFAULT_SETTINGS.theme)
+}
 
 interface Actions {
   hydrated: boolean
@@ -114,7 +123,7 @@ async function pushGroupBundleToServer() {
     people,
     dutyTypes,
     assignments,
-    settings: state.settings,
+    settings: settingsForServer(state.settings),
   })
 }
 
@@ -155,9 +164,7 @@ export const useStore = create<Store>()((set, get) => ({
         return
       }
       const data = await bootstrap()
-      const theme = isThemeId(data.settings.theme)
-        ? data.settings.theme
-        : (readStoredTheme() ?? DEFAULT_SETTINGS.theme)
+      const theme = clientTheme(data.settings.theme)
       const settings = { ...data.settings, theme }
       applyTheme(theme)
       set({
@@ -211,7 +218,7 @@ export const useStore = create<Store>()((set, get) => ({
           assignments: (await db.assignments.toArray())
             .filter((a) => core.people.some((p) => p.id === a.personId && p.group === g))
             .map(normalizeAssignment),
-          settings: core.settings,
+          settings: settingsForServer(core.settings),
         })
         const again = await apiGetBundle(g)
         const applied = await applyServerBundle(g, {
@@ -220,9 +227,7 @@ export const useStore = create<Store>()((set, get) => ({
           assignments: again.assignments as Assignment[],
           settings: again.settings as Partial<Settings> | null,
         })
-        const theme = isThemeId(applied.settings.theme)
-          ? applied.settings.theme
-          : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
+        const theme = clientTheme(applied.settings.theme)
         applyTheme(theme)
         set({
           workspaceGroup: g,
@@ -240,9 +245,7 @@ export const useStore = create<Store>()((set, get) => ({
         assignments: bundle.assignments as Assignment[],
         settings: bundle.settings as Partial<Settings> | null,
       })
-      const theme = isThemeId(applied.settings.theme)
-        ? applied.settings.theme
-        : (get().settings.theme ?? DEFAULT_SETTINGS.theme)
+      const theme = clientTheme(applied.settings.theme)
       applyTheme(theme)
       set({
         workspaceGroup: g,
@@ -336,7 +339,7 @@ export const useStore = create<Store>()((set, get) => ({
     const duty = normalizeDuty({
       id: uid(),
       name: d.name.trim(),
-      short: (d.short ?? d.name.slice(0, 3)).trim().toUpperCase(),
+      short: (d.short ?? d.name.slice(0, 3)).trim().slice(0, 8).toUpperCase(),
       points: isMainDuty ? 0 : Number(d.points ?? 1) || 0,
       defaultSlots: Math.max(1, Number(d.defaultSlots ?? 1) || 1),
       color: d.color ?? DUTY_COLORS[list.length % DUTY_COLORS.length],
@@ -540,22 +543,25 @@ export const useStore = create<Store>()((set, get) => ({
     const settings = { ...get().settings, ...patch }
     if (patch.theme) applyTheme(patch.theme)
     set({ settings })
+    // Лише косметика (тема) — тільки localStorage, без сервера.
+    const serverKeys = Object.keys(patch).filter((k) => k !== 'theme')
+    if (serverKeys.length === 0) return
     const group = get().workspaceGroup
     if (!group) return
-    persist(() => saveSettings(settings, group))
+    persist(() => saveSettings(settingsForServer(settings), group))
   },
 
   replaceAll: (data) => {
     const stats = rebuildStatsFrom(data.people, data.assignments)
-    const settings = normalizeSettings(data.settings)
-    if (isThemeId(settings.theme)) applyTheme(settings.theme)
+    const settings = { ...normalizeSettings(data.settings), theme: clientTheme(data.settings.theme) }
+    applyTheme(settings.theme)
     set({
       people: data.people,
       dutyTypes: data.dutyTypes,
       settings,
       stats,
     })
-    persist(() => saveAll({ ...data, settings }))
+    persist(() => saveAll({ ...data, settings: settingsForServer(settings) }))
   },
 
   resetAll: () => {
@@ -641,7 +647,7 @@ export async function exportData(): Promise<AppData> {
 }
 
 export function parseImportedData(raw: unknown): AppData {
-  if (!raw || typeof raw !== 'object') throw new Error('Файл не схожий на резервну копію ExelSCCI.')
+  if (!raw || typeof raw !== 'object') throw new Error('Файл не схожий на резервну копію ExcelCSSI.')
   const o = raw as Partial<AppData>
   if (!Array.isArray(o.people) || !Array.isArray(o.dutyTypes) || !Array.isArray(o.assignments)) {
     throw new Error('У файлі немає обов’язкових розділів (people, dutyTypes, assignments).')

@@ -49,6 +49,11 @@ export function SettingsPage() {
   const [msg, setMsg] = useState<string | null>(null)
 
   const patchSettings = (patch: Parameters<typeof updateSettings>[0]) => {
+    // Тема — косметика на пристрої, без привʼязки до групи.
+    if ('theme' in patch && Object.keys(patch).length === 1) {
+      updateSettings(patch)
+      return
+    }
     if (!canEditGroup && !('theme' in patch)) return
     updateSettings(patch)
   }
@@ -131,6 +136,7 @@ export function SettingsPage() {
 
       <section className="card flex flex-col gap-4 p-4">
         <h2 className="text-sm font-semibold text-fg">Оформлення</h2>
+        <p className="text-xs text-fg-faint">Зберігається лише на цьому пристрої (не на сервері групи).</p>
         <Field label="Тема">
           <Segmented
             value={settings.theme}

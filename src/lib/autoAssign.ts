@@ -427,7 +427,10 @@ export function planAssignments(data: AppData, req: PlanRequest, stats?: PersonS
     const variants = leafVariants(duty.variants)
     if (variants.length > 0) {
       for (const v of variants) {
-        const n = Math.max(0, Math.floor(Number(r.variantSlots?.[v.id] ?? 1) || 0))
+        const n = Math.max(
+          0,
+          Math.floor(Number(r.variantSlots?.[v.id] ?? v.defaultSlots ?? 1) || 0),
+        )
         for (let i = 0; i < n; i++) {
           workItems.push({
             duty,

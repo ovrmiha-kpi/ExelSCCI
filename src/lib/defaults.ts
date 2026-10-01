@@ -57,6 +57,7 @@ function normalizeVariant(v: DutyVariant): DutyVariant {
     name: v.name || 'Підпункт',
     short: (v.short || 'ПП').slice(0, 8),
     points: Number(v.points) || 0,
+    defaultSlots: Math.max(1, Math.floor(Number(v.defaultSlots) || 1)),
     ...(children && children.length > 0 ? { children } : {}),
   }
 }
@@ -120,6 +121,7 @@ export function normalizeDuty(d: DutyType): DutyType {
   const variants = rawVariants.filter((v) => !isLegacyFullDayVariant(v)).map(normalizeVariant)
   return {
     ...d,
+    short: (d.short || d.name.slice(0, 3)).trim().slice(0, 8).toUpperCase() || 'Н',
     excludeTags: normalizeTagList(d.excludeTags),
     requireTags: normalizeTagList(d.requireTags),
     variants,
@@ -139,7 +141,9 @@ export function normalizeDuty(d: DutyType): DutyType {
 
 export function effectiveSlots(duty: DutyType): number {
   const leaves = leafVariants(duty.variants)
-  if (leaves.length > 0) return leaves.length
+  if (leaves.length > 0) {
+    return leaves.reduce((sum, v) => sum + Math.max(1, Math.floor(Number(v.defaultSlots) || 1)), 0)
+  }
   return Math.max(1, (duty.defaultSlots || 1) + (duty.allowExtraPerson ? 1 : 0))
 }
 
@@ -197,6 +201,7 @@ export function newVariant(partial?: Partial<DutyVariant>): DutyVariant {
     name: partial?.name ?? 'Підпункт',
     short: (partial?.short ?? 'ПП').slice(0, 8).toUpperCase(),
     points: Number(partial?.points ?? 1) || 0,
+    defaultSlots: Math.max(1, Math.floor(Number(partial?.defaultSlots ?? 1) || 1)),
     ...(children && children.length > 0 ? { children } : {}),
   }
 }

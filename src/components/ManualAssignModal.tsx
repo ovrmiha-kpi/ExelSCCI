@@ -170,7 +170,7 @@ function ManualAssignForm({
           >
             {duties.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name} · {d.points} б.
+                {d.short || d.name} · {d.points} б.
                 {isWeekend(date) && settings.weekendMultiplier !== 1
                   ? ` → ${dutyPointsForDate(d.points, date, settings.weekendMultiplier)}`
                   : ''}
@@ -209,7 +209,7 @@ function ManualAssignForm({
           >
             {variants.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.name} · {v.points} б.
+                {v.short || v.name} · {v.points} б.
               </option>
             ))}
           </select>

@@ -141,7 +141,7 @@ function BulkCellAssignForm({
           >
             {duties.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name}
+                {d.short || d.name}
                 {d.isMainDuty ? ' · 0 б.' : ` · ${d.points} б.`}
               </option>
             ))}
@@ -152,7 +152,7 @@ function BulkCellAssignForm({
             <select className="input" value={variantId} onChange={(e) => setVariantId(e.target.value)}>
               {leafVariants(currentDuty!.variants).map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.name} · {v.points} б.
+                  {v.short || v.name} · {v.points} б.
                 </option>
               ))}
             </select>

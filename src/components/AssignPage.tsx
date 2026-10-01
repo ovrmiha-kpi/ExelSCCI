@@ -135,12 +135,15 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
   const isOn = (id: string) => enabled[id] ?? true
   const slotsFor = (id: string, fallback: number) => slots[id] ?? fallback
   const variantSlotKey = (dutyId: string, variantId: string) => `${dutyId}:${variantId}`
-  const variantSlotsFor = (dutyId: string, variantId: string) =>
-    variantSlots[variantSlotKey(dutyId, variantId)] ?? 1
+  const variantSlotsFor = (dutyId: string, variantId: string, fallback = 1) =>
+    variantSlots[variantSlotKey(dutyId, variantId)] ?? fallback
   const dutySlotTotal = (d: (typeof duties)[number]) => {
     const variants = leafVariants(d.variants)
     if (variants.length > 0) {
-      return variants.reduce((sum, v) => sum + (Number(variantSlotsFor(d.id, v.id)) || 0), 0)
+      return variants.reduce(
+        (sum, v) => sum + (Number(variantSlotsFor(d.id, v.id, v.defaultSlots ?? 1)) || 0),
+        0,
+      )
     }
     return Number(slotsFor(d.id, effectiveSlots(d))) || 0
   }
@@ -307,7 +310,9 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
           const variants = leafVariants(d.variants)
           if (variants.length > 0) {
             const vs: Record<string, number> = {}
-            for (const v of variants) vs[v.id] = Math.max(0, Number(variantSlotsFor(d.id, v.id)) || 0)
+            for (const v of variants) {
+              vs[v.id] = Math.max(0, Number(variantSlotsFor(d.id, v.id, v.defaultSlots ?? 1)) || 0)
+            }
             return {
               dutyTypeId: d.id,
               slots: Object.values(vs).reduce((a, b) => a + b, 0),
@@ -501,7 +506,7 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                         onChange={(e) => setEnabled((s) => ({ ...s, [d.id]: e.target.checked }))}
                       />
                       <div className="min-w-0 flex-1">
-                        <DutyBadge duty={d} />
+                        <DutyBadge duty={d} short />
                       </div>
                       <span className="shrink-0 text-[10px] text-fg-faint tabular-nums">
                         {d.isMainDuty ? '0 б.' : `${d.points} б.`}
@@ -516,6 +521,33 @@ export function AssignPage({ onDone }: { onDone: () => void }) {
                         onChange={(e) => setSlots((s) => ({ ...s, [d.id]: Number(e.target.value) }))}
                       />
                     </div>
+                    {on && leafVariants(d.variants).length > 0 && (
+                      <div className="flex flex-col gap-1 pl-7">
+                        {leafVariants(d.variants).map((v) => (
+                          <div key={v.id} className="flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-xs text-fg-muted">
+                              {v.short || v.name}
+                            </span>
+                            <input
+                              type="number"
+                              min={0}
+                              className="input w-14 shrink-0 py-0.5 text-center text-xs"
+                              value={variantSlotsFor(d.id, v.id, v.defaultSlots ?? 1)}
+                              title={`Осіб на ${v.short || v.name}`}
+                              onChange={(e) => {
+                                const key = variantSlotKey(d.id, v.id)
+                                const n = Number(e.target.value)
+                                setVariantSlotsRaw((prev) => {
+                                  const next = { ...prev, [key]: n }
+                                  saveUiPrefs({ assignVariantSlots: next }, effectiveGroup)
+                                  return next
+                                })
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex flex-wrap items-center gap-1 pl-7">
                       {TAG_FILTER_CHIPS.map((chip) => {
                         const mode = tagChipFilterMode(chip.tags, rules.excludeTags, rules.requireTags)

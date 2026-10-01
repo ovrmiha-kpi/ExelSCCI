@@ -185,7 +185,7 @@ export default function App() {
         <div className="mx-auto flex max-w-screen-2xl items-center gap-2 px-3 py-2 md:gap-4 md:px-4">
           <div className="flex min-w-0 items-center gap-2">
             <img src="./favicon.svg" alt="" className="h-7 w-7 shrink-0" />
-            <span className="text-base font-bold tracking-tight text-fg">ExelSCCI</span>
+            <span className="text-base font-bold tracking-tight text-fg">ExcelCSSI</span>
             <span className="truncate text-xs text-fg-faint">
               {ROLE_META[session.role].short}
               {effectiveGroup ? ` · ${effectiveGroup}` : ''}
